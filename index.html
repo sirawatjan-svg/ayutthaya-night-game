@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ค่ำคืนว้าวุ่นในเมืองอยุธยา</title>
+<meta name="description" content="เกมจับไส้ศึกออนไลน์ ธีมประวัติศาสตร์กรุงศรีอยุธยา สำหรับห้องเรียน สูงสุด 40 คน">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Srisakdi:wght@400;700&family=Mitr:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>🏯</text></svg>">
+</head>
+<body>
+
+<div id="bg-scene"></div>
+<div id="bg-vignette"></div>
+
+<div id="app">
+
+  <!-- ============ หน้าแรก ============ -->
+  <section id="v-home" class="view">
+    <div class="home-wrap">
+      <div class="title-orn">✦ ๏ ✦</div>
+      <h1 class="game-title">ค่ำคืนว้าวุ่น<br><span>ในเมืองอยุธยา</span></h1>
+      <p class="tagline">เกมจับไส้ศึกแห่งพระนคร • เรียนรู้ประวัติศาสตร์อยุธยาผ่านการเล่น</p>
+      <div class="home-btns">
+        <button class="btn btn-gold btn-big" id="btn-host">🏯 สร้างห้อง (ครู)</button>
+        <button class="btn btn-blue btn-big" id="btn-join">⚔️ เข้าร่วมเกม (นักเรียน)</button>
+      </div>
+      <p class="mode-note" id="mode-note"></p>
+    </div>
+  </section>
+
+  <!-- ============ ครู: ตั้งค่าห้อง ============ -->
+  <section id="v-create" class="view hidden">
+    <div class="panel panel-narrow">
+      <h2 class="panel-title">ตั้งค่าห้องเกม</h2>
+      <div class="field"><label>ชื่อผู้คุมเกม (ครู)</label>
+        <input id="host-name" maxlength="20" placeholder="เช่น ครูสิรวัชร" value="ครูผู้คุมเกม">
+      </div>
+      <div class="field"><label>เวลากลางวัน (สนทนา+โหวต)</label>
+        <div class="chip-row" id="day-mins"></div>
+      </div>
+      <div class="field"><label>เวลากลางคืน (ใช้ความสามารถ)</label>
+        <div class="chip-row" id="night-mins"></div>
+      </div>
+      <button class="btn btn-gold btn-big w100" id="btn-create-room">เปิดประตูเมือง — สร้างห้อง</button>
+      <button class="btn btn-ghost w100" data-nav="home">ย้อนกลับ</button>
+    </div>
+  </section>
+
+  <!-- ============ นักเรียน: เข้าร่วม ============ -->
+  <section id="v-join" class="view hidden">
+    <div class="panel panel-narrow">
+      <h2 class="panel-title">เข้าร่วมเกม</h2>
+      <div class="field"><label>รหัสห้อง 6 หลัก</label>
+        <input id="join-code" inputmode="numeric" maxlength="6" placeholder="เช่น 358214" autocomplete="off">
+      </div>
+      <div class="field"><label>ชื่อของเจ้า (ชื่อเล่นในเกม)</label>
+        <input id="join-name" maxlength="14" placeholder="เช่น บุญมี" autocomplete="off">
+      </div>
+      <div class="field"><label>เลือกเครื่องแต่งกายชาวกรุงศรี</label>
+        <div class="costume-row" id="costume-row"></div>
+        <div class="costume-name" id="costume-name"></div>
+      </div>
+      <button class="btn btn-blue btn-big w100" id="btn-join-room">ก้าวผ่านประตูเมือง</button>
+      <button class="btn btn-ghost w100" data-nav="home">ย้อนกลับ</button>
+      <p class="err" id="join-err"></p>
+    </div>
+  </section>
+
+  <!-- ============ ครู: ล็อบบี้ ============ -->
+  <section id="v-hostlobby" class="view hidden">
+    <div class="hl-grid">
+      <div class="panel hl-left">
+        <h2 class="panel-title sm">สแกนหรือกรอกรหัสเข้าเมือง</h2>
+        <div class="room-code" id="hl-code">------</div>
+        <div id="qr-box"></div>
+        <div class="join-url" id="hl-url"></div>
+        <div class="hl-count"><span id="hl-count">0</span>/40 คนในเมือง</div>
+        <button class="btn btn-gold btn-big w100" id="btn-start" disabled>เริ่มเกม (ต้องมี 6 คนขึ้นไป)</button>
+        <button class="btn btn-ghost w100" id="btn-close-room">ปิดห้อง</button>
+      </div>
+      <div class="panel hl-right">
+        <h3 class="panel-title sm">ชาวเมืองที่มาถึงแล้ว</h3>
+        <div class="lobby-players" id="hl-players"></div>
+        <h3 class="panel-title sm">การกระจายบทบาท (อัตโนมัติ)</h3>
+        <div class="role-preview" id="hl-roles"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ นักเรียน: ล็อบบี้ (รอ + สอนบทบาท) ============ -->
+  <section id="v-plobby" class="view hidden">
+    <div class="panel panel-narrow center">
+      <div class="pl-me"><div id="pl-avatar"></div><div class="pl-name" id="pl-name"></div></div>
+      <div class="waiting-dots">รอเพื่อนเข้าเมือง<span>.</span><span>.</span><span>.</span></div>
+      <div class="pl-count" id="pl-count"></div>
+      <div class="explainer" id="explainer"></div>
+    </div>
+  </section>
+
+  <!-- ============ ครู: จอเกมหลัก (ฉายโปรเจกเตอร์) ============ -->
+  <section id="v-host" class="view hidden">
+    <header class="game-top">
+      <div class="phase-badge" id="h-phase"></div>
+      <div class="big-timer" id="h-timer">--:--</div>
+      <div class="top-actions">
+        <button class="btn btn-sm btn-ghost" id="btn-skip">ข้ามเฟส ⏭</button>
+      </div>
+    </header>
+    <div class="host-grid">
+      <div class="panel narr-panel">
+        <h3 class="panel-title sm" id="h-loc-name"></h3>
+        <p class="narr-text" id="h-narration"></p>
+        <div class="loot-meter-wrap">
+          <div class="loot-label">🪙 ข่าวลือ: ศักดินาที่ชุมโจรยึดไปแล้ว <b id="h-loot">0</b>/750 ไร่</div>
+          <div class="loot-meter"><div id="h-loot-bar"></div></div>
+        </div>
+        <div class="alive-stats" id="h-stats"></div>
+        <h3 class="panel-title sm">บันทึกพระนคร</h3>
+        <div class="event-log" id="h-log"></div>
+      </div>
+      <div class="panel board-panel">
+        <div class="players-board" id="h-board"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ นักเรียน: จอเล่นเกม (มือถือ) ============ -->
+  <section id="v-player" class="view hidden">
+    <header class="game-top slim">
+      <div class="phase-badge sm" id="p-phase"></div>
+      <div class="big-timer sm" id="p-timer">--:--</div>
+      <div class="sak-badge" id="p-sak"></div>
+    </header>
+    <div class="role-strip" id="p-rolestrip"></div>
+    <div class="p-main" id="p-main"></div>
+    <div class="p-board-wrap">
+      <div class="p-board" id="p-board"></div>
+    </div>
+    <!-- แชท -->
+    <div class="chat-dock" id="chat-dock">
+      <button class="chat-toggle" id="chat-toggle">💬 แชท <span class="chat-unread hidden" id="chat-unread"></span></button>
+      <div class="chat-panel hidden" id="chat-panel">
+        <div class="chat-tabs" id="chat-tabs"></div>
+        <div class="chat-msgs" id="chat-msgs"></div>
+        <div class="chat-input-row">
+          <input id="chat-input" maxlength="120" placeholder="พิมพ์ข้อความ..." autocomplete="off">
+          <button class="btn btn-sm btn-blue" id="chat-send">ส่ง</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ modal ============ -->
+  <div id="modal-wrap" class="hidden"><div id="modal" class="panel"></div></div>
+  <div id="toast"></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/roles.js"></script>
+<script src="js/net.js"></script>
+<script src="js/art.js"></script>
+<script src="js/anim.js"></script>
+<script src="js/host.js"></script>
+<script src="js/player.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
