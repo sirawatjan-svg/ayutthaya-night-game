@@ -376,13 +376,30 @@ const Player = (() => {
     FX.play('win', { team: w.team, title: w.title, text: w.text, sad: false });
     const r = ROLES[myRole];
     const myTeamWon = r && ((w.team === r.team) || (w.team === 'mad' && myRole === 'mad'));
-    setTimeout(() => {
+    setTimeout(async () => {
+      // โหลดคะแนน (ครูเขียนไว้ก่อนประกาศผู้ชนะ)
+      let scoreHtml = '';
+      try {
+        const scores = await Net.once(R + '/scores');
+        if (scores) {
+          const sorted = Object.entries(scores).sort((a, b) => b[1].total - a[1].total);
+          const myRank = sorted.findIndex(([p]) => p === pid) + 1;
+          const mine = scores[pid];
+          scoreHtml = `<div class="action-panel" style="margin-top:10px">
+            <div class="action-title">🏆 คะแนนของเจ้า: ${mine ? mine.total : 0} แต้ม (อันดับ ${myRank}/${sorted.length})</div>
+            ${mine && mine.notes.length ? `<div class="action-sub">${mine.notes.map(esc).join('<br>')}</div>` : ''}
+            <div class="action-sub" style="color:var(--gold)">${sorted.slice(0, 3).map(([, s], i) =>
+              `${['🥇', '🥈', '🥉'][i]} ${esc(s.name)} — ${s.total} แต้ม`).join('<br>')}</div>
+          </div>`;
+        }
+      } catch (e) {}
       $('p-main').innerHTML = `<div class="action-panel center">
         <h2 style="color:var(--gold);font-size:1.6rem">${w.title}</h2>
         <p class="action-sub">${w.text}</p>
         <p style="font-size:1.2rem;margin-top:8px">${myTeamWon ? '🎉 ฝ่ายของเจ้าชนะ!' : '😢 ฝ่ายของเจ้าพ่ายแพ้'}</p>
-        <p class="action-sub">เจ้าคือ <b style="color:${r.color}">${r.name}</b></p>
-        <button class="btn btn-gold w100" onclick="location.href=location.pathname">กลับหน้าแรก</button></div>`;
+        <p class="action-sub">เจ้าคือ <b style="color:${r.color}">${r.name}</b></p></div>
+        ${scoreHtml}
+        <button class="btn btn-gold w100" onclick="location.href=location.pathname">กลับหน้าแรก</button>`;
       $('p-board').innerHTML = Object.entries(players).map(([p, pl]) => {
         const rr = ROLES[roles[p]];
         return `<div class="tgt ${alive[p] ? '' : 'dead'}" style="--bcol:${rr ? rr.color : '#888'}">
