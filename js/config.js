@@ -5,11 +5,12 @@
 // (เล่นได้หลายแท็บบนเครื่องเดียวกัน — ไว้ลองระบบก่อนตั้งค่า Firebase)
 // ============================================================
 const FIREBASE_CONFIG = {
-  apiKey: "PASTE_YOUR_API_KEY",
-  authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
-  databaseURL: "https://PASTE_YOUR_PROJECT-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "PASTE_YOUR_PROJECT",
-  storageBucket: "PASTE_YOUR_PROJECT.appspot.com",
-  messagingSenderId: "000000000000",
-  appId: "PASTE_YOUR_APP_ID",
+  apiKey: "AIzaSyC1wA3pAmEgj9G4R15D_ay057T-P8MvcGc",
+  authDomain: "ayutthaya-game.firebaseapp.com",
+  databaseURL: "https://ayutthaya-game-default-rtdb.firebaseio.com",
+  projectId: "ayutthaya-game",
+  storageBucket: "ayutthaya-game.firebasestorage.app",
+  messagingSenderId: "442772422256",
+  appId: "1:442772422256:web:e15fda9d9a7b68c0c73eb5",
+  measurementId: "G-4NE4Y3N3MB"
 };
