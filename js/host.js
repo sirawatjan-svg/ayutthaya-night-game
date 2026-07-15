@@ -179,7 +179,7 @@ const Host = (() => {
     const ranked = shuffle(Object.keys(tally)).sort((a, b) => tally[b] - tally[a]);
     const out = ranked.slice(0, q).filter(t => tally[t] > 0);
     await setPhase('duskfx', meta.night, day, 0);
-    await Net.set(R + '/voteresults/' + day, { out: out.map(p => ({ pid: p, role: roles[p] })), tally });
+    await Net.set(R + '/voteresults/' + day, { day, out: out.map(p => ({ pid: p, role: roles[p] })), tally });
 
     for (const t of out) {
       alive[t] = false;
@@ -224,6 +224,8 @@ const Host = (() => {
     const deaths = new Map(); // pid -> cause
     const pub = { deaths: [], saved: 0, stealTotal: 0, stealCount: 0, gifted: null, exec: [] };
     const inbox = [];        // {pid, text}
+    // ประวัติละเอียดสำหรับสรุปท้ายเกม + คิดคะแนน
+    const hist = { night: n, gift: null, protects: {}, steals: [], execs: [], deaths: [], saved: [], invNoble: [], invSpy: [], enemyVotes: {} };
 
     await setPhase('dawnfx', n, meta.day, 0);
 
@@ -235,6 +237,7 @@ const Host = (() => {
         sak[t] = (sak[t] || 0) + 25;
         sak[lord] -= 25;
         pub.gifted = true;
+        hist.gift = { from: lord, to: t, toRole: roles[t] };
         if (roles[t] === 'thief') { loot += 25; inbox.push({ pid: t, text: 'เจ้าเมืองพระราชทานศักดินาให้เจ้า 25 ไร่ — เข้าคลังแก๊งโจรโดยปริยาย!' }); }
         else inbox.push({ pid: t, text: 'เจ้าเมืองพระราชทานศักดินาให้เจ้า 25 ไร่' });
         ev.push({ type: 'gift', text: 'มีราษฎรผู้หนึ่งได้รับพระราชทานศักดินา 25 ไร่' });
@@ -252,6 +255,7 @@ const Host = (() => {
         sak[t] = (sak[t] || 0) - amt;
         sak[th] = (sak[th] || 0) + amt;
         got += amt; pub.stealCount++;
+        hist.steals.push({ thief: th, victim: t, amt });
         lines.push(`${players[t].name}: ได้ ${amt} ไร่${amt === 0 ? ' (คนผู้นี้ไม่มีศักดินา!)' : ''}`);
         if ((sak[t] || 0) <= 0 && roles[t] !== 'enemy') deaths.set(t, 'bankrupt');
       }
@@ -270,10 +274,12 @@ const Host = (() => {
         if (roles[t] === 'thief') {
           deaths.set(t, 'execute');
           pub.exec.push({ ok: true });
+          hist.execs.push({ noble: nb, target: t, ok: true });
           inbox.push({ pid: nb, text: `เจ้าลงดาบถูกคน! ${players[t].name} คือโจรจริง` });
         } else {
           deaths.set(nb, 'misjudge');
           pub.exec.push({ ok: false });
+          hist.execs.push({ noble: nb, target: t, ok: false });
           inbox.push({ pid: nb, text: `เจ้าชี้ตัวผิด... ${players[t].name} ไม่ใช่โจร เจ้าต้องรับโทษแทน` });
         }
       }
@@ -283,6 +289,7 @@ const Host = (() => {
     const evotes = {};
     for (const en of aliveOf('enemy')) {
       const arr = Array.isArray(a.enemyVotes && a.enemyVotes[en]) ? a.enemyVotes[en] : [];
+      if (arr.length) hist.enemyVotes[en] = arr;
       arr.forEach(t => { if (alive[t] && roles[t] !== 'enemy') evotes[t] = (evotes[t] || 0) + 1; });
     }
     const kq = killQuota(n);
@@ -294,12 +301,13 @@ const Host = (() => {
     const protectedSet = new Set();
     for (const dc of aliveOf('doctor')) {
       const t = a.protect && a.protect[dc];
-      if (t && t !== '-') protectedSet.add(t);
+      if (t && t !== '-') { protectedSet.add(t); hist.protects[dc] = t; }
     }
     for (const [pid, cause] of [...deaths]) {
       if (protectedSet.has(pid)) {
         deaths.delete(pid);
         pub.saved++;
+        hist.saved.push(pid);
         if (cause === 'bankrupt') sak[pid] = Math.max(sak[pid] || 0, 25);
         inbox.push({ pid, text: 'เมื่อคืนเจ้าเกือบถูกกำจัด... แต่หมอหลวงมาช่วยชีวิตไว้ทัน!' });
       }
@@ -316,6 +324,7 @@ const Host = (() => {
       const t = a.nobleInv && a.nobleInv[nb];
       if (t && t !== '-') {
         const yes = roles[t] === 'thief';
+        hist.invNoble.push({ noble: nb, target: t, yes });
         inbox.push({ pid: nb, text: `ผลสืบสวนคืนที่ ${n}: ${players[t].name} ${yes ? '⚠️ เป็นโจร!' : '✔ ไม่ใช่โจร'}` });
       }
     }
@@ -323,15 +332,18 @@ const Host = (() => {
       const t = a.spyInv && a.spyInv[sp];
       if (t && t !== '-') {
         const yes = roles[t] === 'enemy';
+        hist.invSpy.push({ spy: sp, target: t, yes });
         inbox.push({ pid: sp, text: `ผลสืบสวนคืนที่ ${n}: ${players[t].name} ${yes ? '⚠️ เป็นศัตรู!' : '✔ ไม่ใช่ศัตรู'}` });
       }
     }
 
     // เขียนสถานะทั้งหมด
+    hist.deaths = pub.deaths;
     const upd = { loot };
     for (const p in sak) upd['sak/' + p] = sak[p];
     for (const p in alive) upd['alive/' + p] = alive[p];
     upd['results/' + n] = pub;
+    upd['history/' + n] = hist;
     await Net.update(R, upd);
     for (const m of inbox) await Net.push(R + '/private/' + m.pid, { night: n, text: m.text });
 
@@ -365,13 +377,154 @@ const Host = (() => {
   }
 
   async function endGame(team, title, text) {
+    // คิดคะแนน + เขียนก่อนประกาศผู้ชนะ เพื่อให้มือถือนักเรียนเห็นคะแนนพร้อมกัน
+    let scores = null;
+    try {
+      scores = await computeScores(team);
+      await Net.set(R + '/scores', scores);
+    } catch (e) { console.error('score error', e); }
     await Net.set(R + '/winner', { team, title, text });
     await setPhase('end', meta.night, meta.day, 0);
     await FX.play('win', { team, title, text, sad: team === 'enemy' });
     log(`🏁 ${title} — ${text}`);
-    $('h-narration').innerHTML = `<b style="color:var(--gold)">${title}</b><br>${text}<br><br>เปิดเผยบทบาททั้งหมดบนกระดานด้านขวา`;
+    $('h-narration').innerHTML = `<b style="color:var(--gold)">${title}</b><br>${text}<br><br>
+      <button class="btn btn-gold w100" id="btn-summary">📜 สรุปเกม & คะแนน (ฉายให้นักเรียนดู)</button>`;
+    $('btn-summary').onclick = () => showSummary(scores, team, title);
     renderBoard(true);
+    setTimeout(() => showSummary(scores, team, title), 1500);
     return true;
+  }
+
+  // ---------------- คะแนนการเรียนรู้ ----------------
+  // +10 ทีมชนะ • +2 รอดชีวิต • +3 โหวตจับคนร้ายถูก • +5 ใช้ความสามารถสำเร็จ
+  let lastHist = {}, lastVoteRes = {};
+  async function computeScores(winTeam) {
+    lastHist = (await Net.once(R + '/history')) || {};
+    const votesAll = (await Net.once(R + '/votes')) || {};
+    lastVoteRes = (await Net.once(R + '/voteresults')) || {};
+    const S = {};
+    for (const pid in players) S[pid] = { name: players[pid].name, role: roles[pid] || 'serf', total: 0, notes: [], alive: !!alive[pid] };
+    const add = (pid, pts, note) => { if (!S[pid]) return; S[pid].total += pts; S[pid].notes.push(`${note} +${pts}`); };
+    for (const pid in S) {
+      if (ROLES[S[pid].role].team === winTeam) add(pid, 10, 'ทีมชนะเกม');
+      if (S[pid].alive) add(pid, 2, 'รอดชีวิตถึงจบเกม');
+    }
+    // โหวตจับคนร้าย (ศัตรู/โจร) ถูกตัว
+    for (const d in lastVoteRes) {
+      const outBad = (lastVoteRes[d].out || []).filter(o => o.role === 'enemy' || o.role === 'thief').map(o => o.pid);
+      if (!outBad.length) continue;
+      const dv = votesAll[d] || {};
+      for (const pid in dv) {
+        const arr = Array.isArray(dv[pid]) ? dv[pid] : [];
+        if (arr.some(t => outBad.includes(t))) add(pid, 3, `โหวตจับคนร้ายถูก (วัน ${d})`);
+      }
+    }
+    // ความสามารถสำเร็จรายคืน
+    for (const n in lastHist) {
+      const h = lastHist[n] || {};
+      const saved = h.saved || [];
+      for (const dc in (h.protects || {})) if (saved.includes(h.protects[dc])) add(dc, 5, `รักษาช่วยชีวิตสำเร็จ (คืน ${n})`);
+      (h.invNoble || []).forEach(iv => { if (iv.yes) add(iv.noble, 5, `สืบเจอโจร (คืน ${n})`); });
+      (h.invSpy || []).forEach(iv => { if (iv.yes) add(iv.spy, 5, `สืบเจอศัตรู (คืน ${n})`); });
+      (h.execs || []).forEach(e => { if (e.ok) add(e.noble, 5, `ประหารโจรถูกตัว (คืน ${n})`); });
+      const byThief = {};
+      (h.steals || []).forEach(s => { byThief[s.thief] = (byThief[s.thief] || 0) + (s.amt || 0); });
+      for (const th in byThief) if (byThief[th] > 0) add(th, 5, `ปล้นได้ ${byThief[th]} ไร่ (คืน ${n})`);
+      const killed = (h.deaths || []).filter(x => x.cause === 'kill').map(x => x.pid);
+      for (const en in (h.enemyVotes || {})) {
+        const arr = Array.isArray(h.enemyVotes[en]) ? h.enemyVotes[en] : [];
+        const hits = arr.filter(t => killed.includes(t)).length;
+        if (hits) add(en, 5 * hits, `ลอบสังหารสำเร็จ ${hits} คน (คืน ${n})`);
+      }
+      if (h.gift && h.gift.toRole && h.gift.toRole !== 'thief' && h.gift.toRole !== 'enemy') add(h.gift.from, 5, `แจกศักดินาให้ชาวเมือง (คืน ${n})`);
+    }
+    return S;
+  }
+
+  // ---------------- หน้าสรุปเกม (ไทม์ไลน์ + อันดับ + CSV) ----------------
+  const TEAM_TH = { villager: 'ชาวเมือง', enemy: 'ศัตรู', thief: 'โจร', mad: 'คนบ้า' };
+  const nameOf = (pid) => players[pid] ? esc(players[pid].name) : '?';
+  const roleTag = (pid) => { const r = ROLES[roles[pid]]; return r ? `<b style="color:${r.color}">${r.name}</b>` : ''; };
+
+  function timelineHtml() {
+    const days = Object.keys(lastVoteRes).map(Number);
+    const nights = Object.keys(lastHist).map(Number);
+    const maxD = Math.max(0, ...days, ...nights.map(n => n - 1));
+    let out = `<div class="tl-day"><div class="tl-title">🌌 คืนที่ 1 — ทุกคนรับบทบาทลับของตน</div></div>`;
+    for (let d = 1; d <= maxD + 1; d++) {
+      const vr = lastVoteRes[d];
+      if (vr) {
+        let lines = (vr.out || []).map(o => `⚖️ ชาวเมืองขับ <b>${nameOf(o.pid)}</b> (${roleTag(o.pid)}) — ${(vr.tally || {})[o.pid] || 0} เสียง`);
+        if (!lines.length) lines = ['⚖️ ไม่มีผู้ถูกขับออก'];
+        out += `<div class="tl-day"><div class="tl-title">☀️ วันที่ ${d} ณ ${locationOfDay(d).name}</div>${lines.map(l => `<div class="tl-line">${l}</div>`).join('')}</div>`;
+      }
+      const h = lastHist[d + 1];
+      if (h) {
+        const L = [];
+        if (h.gift) L.push(`👑 เจ้าเมืองแจกศักดินา 25 ไร่ให้ <b>${nameOf(h.gift.to)}</b>${h.gift.toRole === 'thief' ? ' <span style="color:var(--orange)">(เผลอให้โจร!)</span>' : ''}`);
+        (h.steals || []).forEach(s => L.push(`🪙 <b>${nameOf(s.thief)}</b> ปล้น <b>${nameOf(s.victim)}</b> ได้ ${s.amt} ไร่`));
+        (h.invNoble || []).forEach(iv => L.push(`🔎 ขุนนาง <b>${nameOf(iv.noble)}</b> สืบ <b>${nameOf(iv.target)}</b>: ${iv.yes ? '⚠️ เป็นโจร' : 'ไม่ใช่โจร'}`));
+        (h.invSpy || []).forEach(iv => L.push(`🏮 จารชน <b>${nameOf(iv.spy)}</b> สืบ <b>${nameOf(iv.target)}</b>: ${iv.yes ? '⚠️ เป็นศัตรู' : 'ไม่ใช่ศัตรู'}`));
+        (h.execs || []).forEach(e => L.push(e.ok ? `⚔️ ขุนนาง <b>${nameOf(e.noble)}</b> ประหาร <b>${nameOf(e.target)}</b> (โจรตัวจริง!)` : `⚔️ ขุนนาง <b>${nameOf(e.noble)}</b> ชี้ตัว <b>${nameOf(e.target)}</b> ผิด จึงถูกกำจัดแทน`));
+        (h.deaths || []).forEach(x => {
+          if (x.cause === 'kill') L.push(`☠️ <b>${nameOf(x.pid)}</b> (${roleTag(x.pid)}) ถูกศัตรูลอบสังหาร`);
+          else if (x.cause === 'bankrupt') L.push(`🪙 <b>${nameOf(x.pid)}</b> (${roleTag(x.pid)}) ถูกปล้นจนสิ้นเนื้อประดาตัว`);
+        });
+        (h.saved || []).forEach(p => L.push(`💚 หมอหลวงช่วยชีวิต <b>${nameOf(p)}</b> ไว้ได้`));
+        if (!L.length) L.push('🕊️ คืนนี้สงบ ไม่มีเหตุการณ์');
+        out += `<div class="tl-day night"><div class="tl-title">🌙 คืนที่ ${d + 1}</div>${L.map(l => `<div class="tl-line">${l}</div>`).join('')}</div>`;
+      }
+    }
+    return out;
+  }
+
+  function showSummary(scores, team, title) {
+    if (!scores) { App.toast('ไม่มีข้อมูลคะแนน'); return; }
+    const sorted = Object.entries(scores).sort((a, b) => b[1].total - a[1].total);
+    const rows = sorted.map(([pid, s], i) => {
+      const r = ROLES[s.role];
+      return `<tr class="${i === 0 ? 'mvp' : ''}"><td>${i === 0 ? '🏆' : i + 1}</td>
+        <td>${esc(s.name)}${i === 0 ? ' <span class="mvp-tag">MVP</span>' : ''}</td>
+        <td style="color:${r.color}">${r.name}</td>
+        <td>${s.alive ? '💚 รอด' : '✝'}</td>
+        <td class="pts">${s.total}</td>
+        <td class="notes">${s.notes.map(esc).join('<br>') || '-'}</td></tr>`;
+    }).join('');
+    let ov = document.getElementById('summary-ov');
+    if (ov) ov.remove();
+    ov = document.createElement('div');
+    ov.id = 'summary-ov';
+    ov.className = 'summary-overlay';
+    ov.innerHTML = `<div class="sum-panel">
+      <h2>📜 สรุปศึกชิงพระนคร — ${title || ''}</h2>
+      <div class="sum-grid">
+        <div><h3>🏆 อันดับคะแนน</h3>
+          <table class="lead-table"><tr><th>#</th><th>ชื่อ</th><th>บทบาท</th><th>สถานะ</th><th>คะแนน</th><th>ที่มาคะแนน</th></tr>${rows}</table>
+          <p class="sum-note">เกณฑ์: ทีมชนะ +10 • รอดชีวิต +2 • โหวตจับคนร้ายถูก +3 • ใช้ความสามารถสำเร็จ +5</p>
+        </div>
+        <div><h3>🕰️ ไทม์ไลน์เหตุการณ์</h3><div class="tl-wrap">${timelineHtml()}</div></div>
+      </div>
+      <div class="sum-btns">
+        <button class="btn btn-gold" id="btn-csv">⬇️ ดาวน์โหลดคะแนน (CSV เปิดใน Excel)</button>
+        <button class="btn btn-ghost" id="btn-sum-close">ปิด</button>
+      </div></div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('#btn-sum-close').onclick = () => ov.remove();
+    ov.querySelector('#btn-csv').onclick = () => downloadCSV(sorted);
+  }
+
+  function downloadCSV(sorted) {
+    const rows = [['อันดับ', 'ชื่อ', 'บทบาท', 'ฝ่าย', 'สถานะ', 'คะแนนรวม', 'ที่มาคะแนน']];
+    sorted.forEach(([pid, s], i) => {
+      const r = ROLES[s.role];
+      rows.push([i + 1, s.name, r.name, TEAM_TH[r.team] || '', s.alive ? 'รอดชีวิต' : 'ถูกกำจัด', s.total, s.notes.join(' | ')]);
+    });
+    const csv = '﻿' + rows.map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = `คะแนนเกมอยุธยา-ห้อง${code}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
   }
 
   // ---------------- เรนเดอร์จอครู ----------------
