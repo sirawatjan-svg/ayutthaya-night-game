@@ -6,6 +6,7 @@ const Host = (() => {
   let code = null, R = null;
   let meta = null, players = {}, roles = {}, alive = {}, sak = {}, loot = 0;
   let acts = null, votes = null, thiefTurns = {};
+  let goal = 450, lordShield = false; // เป้าโจร (ตามขนาดห้อง) + องครักษ์เจ้าเมือง (ใช้ได้ 1 ครั้ง)
   let busy = false, tickTimer = null, unsubs = [];
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -76,7 +77,9 @@ const Host = (() => {
       sakW[pid] = ROLES[bag[i]].sakdina;
       if (bag[i] === 'thief') turnsW[pid] = 0;
     });
-    await Net.update(R, { roles: rolesW, alive: aliveW, sak: sakW, loot: 0, thiefTurns: turnsW });
+    goal = thiefGoal(pids.length);
+    lordShield = true;
+    await Net.update(R, { roles: rolesW, alive: aliveW, sak: sakW, loot: 0, thiefTurns: turnsW, goal, lordShield: true });
     await setPhase('reveal', 1, 1, meta0().night);
     bindGame();
   }
@@ -88,7 +91,7 @@ const Host = (() => {
       phase, night, day,
       phaseEnds: minutes ? Net.now() + minutes * 60000 : 0,
       execNight: nobleExecNight(night), giftNight: lordGiftNight(night),
-      killQuota: killQuota(night),
+      killQuota: killQuota(alivePids().length - aliveOf('enemy').length),
     }, extra || {});
     await Net.update(R + '/meta', upd);
   }
@@ -104,6 +107,8 @@ const Host = (() => {
       Net.on(R + '/sak', v => { sak = v || {}; renderBoard(); }),
       Net.on(R + '/loot', v => { loot = v || 0; renderLoot(); }),
       Net.on(R + '/thiefTurns', v => { thiefTurns = v || {}; }),
+      Net.on(R + '/goal', v => { if (v) goal = v; renderLoot(); }),
+      Net.on(R + '/lordShield', v => { lordShield = !!v; }),
       Net.on(R + '/act', v => { acts = v || {}; }),
       Net.on(R + '/votes', v => { votes = v || {}; }),
     );
@@ -187,8 +192,12 @@ const Host = (() => {
       await FX.play('voteout', { name: players[t].name, avatar: players[t].avatar, role: roles[t] });
       log(`⚖️ ชาวเมืองขับ ${players[t].name} (${ROLES[roles[t]].name}) ออกจากพระนคร — ${tally[t]} เสียง`);
       if (roles[t] === 'mad') {
-        await FX.play('madwin', { name: players[t].name });
-        return endGame('mad', 'คนบ้าชนะ!', `${players[t].name} หลอกทั้งเมืองให้โหวตขับตนเองสำเร็จ`);
+        if (day >= 2) {
+          await FX.play('madwin', { name: players[t].name });
+          return endGame('mad', 'คนบ้าชนะ!', `${players[t].name} หลอกทั้งเมืองให้โหวตขับตนเองสำเร็จ`);
+        }
+        // วันแรกยังไม่นับ — คนบ้าถูกขับออกเฉยๆ
+        log(`🤪 ${players[t].name} เป็นคนบ้า... แต่ถูกขับวันแรก จึงยังไม่ถือว่าชนะ`);
       }
       if (roles[t] === 'lord') {
         return endGame('enemy', 'ศัตรูชนะ!', 'เจ้าเมืองถูกขับออกจากพระนคร บ้านเมืองระส่ำระสาย ไส้ศึกยึดเมืองสำเร็จ');
@@ -297,6 +306,17 @@ const Host = (() => {
     const killed = kranked.slice(0, kq);
     killed.forEach(t => { if (!deaths.has(t)) deaths.set(t, 'kill'); });
 
+    // 4.5) องครักษ์เจ้าเมือง: รับดาบแทนการลอบสังหารได้ 1 ครั้งต่อเกม
+    const lordPid = aliveOf('lord')[0];
+    if (lordShield && lordPid && deaths.get(lordPid) === 'kill') {
+      deaths.delete(lordPid);
+      lordShield = false;
+      await Net.set(R + '/lordShield', false);
+      pub.lordSaved = true;
+      hist.lordSaved = true;
+      inbox.push({ pid: lordPid, text: 'เมื่อคืนศัตรูบุกถึงตัวเจ้า! องครักษ์สละชีพปกป้องไว้ — ครั้งต่อไปไม่มีใครช่วยแล้ว' });
+    }
+
     // 5) แพทย์คุ้มครอง
     const protectedSet = new Set();
     for (const dc of aliveOf('doctor')) {
@@ -356,10 +376,11 @@ const Host = (() => {
       else if (d.cause === 'bankrupt') { await FX.play('bankrupt', { name: nm, role: d.role }); log(`🪙 ${nm} (${ROLES[d.role].name}) สิ้นเนื้อประดาตัว ถูกกำจัด`); }
       else { await FX.play('kill', { name: nm, role: d.role }); log(`⚔️ ${nm} (${ROLES[d.role].name}) ถูกประหาร/รับโทษ`); }
     }
+    if (pub.lordSaved) { await FX.play('heal', { text: '⚔️ องครักษ์สละชีพปกป้องเจ้าเมืองจากการลอบสังหาร! (ใช้ได้ครั้งเดียว)' }); log('⚔️ องครักษ์ปกป้องเจ้าเมืองไว้ได้ — โล่หมดแล้ว'); }
     if (pub.saved) { await FX.play('heal', { text: `หมอหลวงช่วยชีวิตผู้เคราะห์ร้ายไว้ได้ ${pub.saved} คน` }); log(`💚 หมอหลวงช่วยชีวิตไว้ ${pub.saved} คน`); }
     if (pub.deaths.length === 0 && !pub.saved) log('🕊️ เช้านี้ทุกคนปลอดภัย');
 
-    if (loot > 0) log(`🪙 ชุมโจรสะสมศักดินาแล้ว ${loot}/${THIEF_GOAL} ไร่`);
+    if (loot > 0) log(`🪙 ชุมโจรสะสมศักดินาแล้ว ${loot}/${goal} ไร่`);
     if (await checkWin()) return;
     await toDay(n);
   }
@@ -370,7 +391,7 @@ const Host = (() => {
     const others = alivePids().length - en;
     const lord = aliveOf('lord').length;
     if (lord === 0) return endGame('enemy', 'ศัตรูชนะ!', 'เจ้าเมืองสิ้นชีพ พระนครไร้ผู้นำ ไส้ศึกเปิดประตูเมืองรับทัพใหญ่');
-    if (loot >= THIEF_GOAL) return endGame('thief', 'แก๊งโจรชนะ!', `ชุมโจรยึดศักดินาครบ ${THIEF_GOAL} ไร่ กลายเป็นผู้มีอิทธิพลเหนือพระนคร`);
+    if (loot >= goal) return endGame('thief', 'แก๊งโจรชนะ!', `ชุมโจรยึดศักดินาครบ ${goal} ไร่ กลายเป็นผู้มีอิทธิพลเหนือพระนคร`);
     if (en > others) return endGame('enemy', 'ศัตรูชนะ!', 'ไส้ศึกมีจำนวนมากกว่าชาวเมือง พระนครถูกยึดจากภายใน');
     if (en === 0 && aliveOf('thief').length === 0) return endGame('villager', 'ชาวเมืองชนะ!', 'ทั้งไส้ศึกและชุมโจรถูกกวาดล้างจนหมดสิ้น กรุงศรีอยุธยากลับคืนสู่ความสงบ');
     return false;
@@ -470,6 +491,7 @@ const Host = (() => {
           if (x.cause === 'kill') L.push(`☠️ <b>${nameOf(x.pid)}</b> (${roleTag(x.pid)}) ถูกศัตรูลอบสังหาร`);
           else if (x.cause === 'bankrupt') L.push(`🪙 <b>${nameOf(x.pid)}</b> (${roleTag(x.pid)}) ถูกปล้นจนสิ้นเนื้อประดาตัว`);
         });
+        if (h.lordSaved) L.push('⚔️ องครักษ์สละชีพปกป้องเจ้าเมืองจากการลอบสังหาร');
         (h.saved || []).forEach(p => L.push(`💚 หมอหลวงช่วยชีวิต <b>${nameOf(p)}</b> ไว้ได้`));
         if (!L.length) L.push('🕊️ คืนนี้สงบ ไม่มีเหตุการณ์');
         out += `<div class="tl-day night"><div class="tl-title">🌙 คืนที่ ${d + 1}</div>${L.map(l => `<div class="tl-line">${l}</div>`).join('')}</div>`;
@@ -550,11 +572,12 @@ const Host = (() => {
     if (meta.phase === 'end') return;
     if (meta.phase === 'reveal') { loc.textContent = 'เปิดเรื่อง'; el.textContent = STORY.opening; }
     else if (meta.phase === 'night') { loc.textContent = `คืนที่ ${meta.night}`; el.textContent = STORY.nightIntro + (meta.execNight ? ' — คืนนี้ขุนนางประหารโจรได้!' : '') + (meta.giftNight ? ' — คืนนี้เจ้าเมืองแจกศักดินา' : ''); }
-    else if (meta.day) { const l = locationOfDay(meta.day); loc.textContent = `วันที่ ${meta.day} — ${l.name}`; el.textContent = l.story; }
+    else if (meta.day) { const l = locationOfDay(meta.day); loc.textContent = `วันที่ ${meta.day} — ${l.name}`; el.textContent = `${l.hook} • 💡 ${l.fact}`; }
   }
   function renderLoot() {
     $('h-loot').textContent = loot;
-    $('h-loot-bar').style.width = Math.min(100, loot / THIEF_GOAL * 100) + '%';
+    const gEl = $('h-goal'); if (gEl) gEl.textContent = goal;
+    $('h-loot-bar').style.width = Math.min(100, loot / goal * 100) + '%';
   }
   function renderStats() {
     const groups = { villager: 'ฝ่ายชาวเมือง', enemy: 'ศัตรู', thief: 'โจร', mad: 'คนบ้า' };
