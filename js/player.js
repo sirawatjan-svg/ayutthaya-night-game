@@ -5,6 +5,7 @@
 const Player = (() => {
   let code = null, R = null, pid = null, me = null;
   let meta = null, players = {}, roles = {}, alive = {}, sak = {};
+  let goalP = 450, results = {};
   let myRole = null, revealShown = false, lastPhaseKey = '';
   let inboxKeys = new Set(), inboxMsgs = [], firstInbox = true;
   let chatCh = 'all', chatUnsub = null, chatOpen = false, unread = 0, chatCount = {};
@@ -23,13 +24,21 @@ const Player = (() => {
     try { saved = JSON.parse(localStorage.getItem(saveKey) || 'null'); } catch (e) {}
     const existing = await Net.once(R + '/players');
     if (saved && existing && existing[saved.pid]) {
-      pid = saved.pid; // กลับเข้าห้องเดิม
+      pid = saved.pid; // กลับเข้าห้องเดิม (จำจากเครื่องนี้)
     } else {
-      if (m.state !== 'lobby') throw 'เกมเริ่มไปแล้ว ไม่สามารถเข้ากลางคันได้';
-      if (existing && Object.keys(existing).length >= MAX_PLAYERS) throw 'ห้องเต็ม (40 คน)';
-      pid = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-      await Net.set(R + '/players/' + pid, { name, avatar, ts: Net.now() });
-      localStorage.setItem(saveKey, JSON.stringify({ pid, name, avatar }));
+      // หลุดแล้วกลับเข้าด้วย "ชื่อเดิม" — เสียบกลับตำแหน่ง/บทบาทเดิมได้แม้เกมเริ่มแล้ว
+      const nameKey = name.trim().toLowerCase();
+      const match = existing && Object.entries(existing).find(([, pl]) => (pl.name || '').trim().toLowerCase() === nameKey);
+      if (match) {
+        pid = match[0];
+        localStorage.setItem(saveKey, JSON.stringify({ pid, name: match[1].name, avatar: match[1].avatar }));
+      } else {
+        if (m.state !== 'lobby') throw 'เกมเริ่มไปแล้ว — ถ้าเจ้าหลุดจากเกม ให้พิมพ์ "ชื่อเดิมให้ตรงเป๊ะ" เพื่อกลับเข้าตำแหน่งเดิม';
+        if (existing && Object.keys(existing).length >= MAX_PLAYERS) throw 'ห้องเต็ม (40 คน)';
+        pid = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        await Net.set(R + '/players/' + pid, { name, avatar, ts: Net.now() });
+        localStorage.setItem(saveKey, JSON.stringify({ pid, name, avatar }));
+      }
     }
     location.hash = 'p' + code;
     bind();
@@ -48,6 +57,8 @@ const Player = (() => {
       Net.on(R + '/sak/' + pid, v => { sak[pid] = v; renderSak(); }),
       Net.on(R + '/winner', v => { if (v) showEnd(v); }),
       Net.on(R + '/private/' + pid, v => { onInbox(v); }),
+      Net.on(R + '/goal', v => { if (v) goalP = v; }),
+      Net.on(R + '/results', v => { results = v || {}; }),
     );
     if (tickTimer) clearInterval(tickTimer);
     tickTimer = setInterval(renderTimer, 600);
@@ -100,20 +111,40 @@ const Player = (() => {
   }
 
   function renderSak() {
-    const el = $('p-sak');
-    if (!myRole) { el.textContent = ''; return; }
-    el.innerHTML = myRole === 'enemy' ? '🗡️ ไร้ศักดินา' : `🏞️ ${sak[pid] != null ? sak[pid] : ROLES[myRole].sakdina} ไร่`;
+    // กันชะโงก: ไม่โชว์ศักดินา/บทบาทบนแถบสาธารณะ (ศักดินา 0 = ศัตรู, 50000 = เจ้าเมือง เดาได้ทันที)
+    $('p-sak').textContent = '';
   }
 
+  function peekCardHtml() {
+    const r = ROLES[myRole];
+    const s = myRole === 'enemy' ? 'ไร้ศักดินา' : `${sak[pid] != null ? sak[pid] : r.sakdina} ไร่`;
+    return `<div class="peek-card" style="--tint:${r.color}">
+      <div class="medal">${Art.roleMedallion(myRole, 80)}</div>
+      <h3 style="color:${r.color}">${r.name}</h3>
+      <div class="cn">🏞️ ศักดินา ${s} • ป้ายสี: ${r.colorName}</div>
+      <div class="ab">✨ ${r.ability}</div>
+      ${r.warn ? `<div class="wr">⚠️ ${r.warn}</div>` : ''}
+      ${teammatesHtml()}
+    </div>`;
+  }
+  let peekOv = null;
   function renderRoleStrip() {
     const el = $('p-rolestrip');
     if (!myRole) { el.innerHTML = ''; return; }
-    const r = ROLES[myRole];
-    el.innerHTML = `<span class="medal-sm">${Art.roleMedallion(myRole, 40)}</span>
-      <span class="rs-name" style="color:${r.color}">${r.name}</span>
-      ${!alive[pid] ? '<span style="color:#ff8080">✝ ถูกกำจัดแล้ว</span>' : ''}
-      <span class="rs-hint">แตะดูบทบาท</span>`;
-    el.onclick = () => showRoleCard(false);
+    el.innerHTML = `<span class="rs-peek">🎭 กดค้างเพื่อดูบทบาทลับ</span>
+      ${!alive[pid] ? '<span style="color:#ff8080">✝ ถูกกำจัดแล้ว</span>' : ''}`;
+    const show = (e) => {
+      e.preventDefault();
+      if (peekOv) return;
+      peekOv = document.createElement('div');
+      peekOv.className = 'peek-ov';
+      peekOv.innerHTML = peekCardHtml();
+      document.body.appendChild(peekOv);
+    };
+    const hide = () => { if (peekOv) { peekOv.remove(); peekOv = null; } };
+    el.onpointerdown = show;
+    el.onpointerup = hide; el.onpointerleave = hide; el.onpointercancel = hide;
+    el.oncontextmenu = (e) => e.preventDefault();
   }
 
   // ---------------- การ์ดบทบาท ----------------
@@ -181,8 +212,19 @@ const Player = (() => {
       case 'night': renderNightAction(el); break;
       case 'day': {
         const loc = locationOfDay(meta.day);
-        el.innerHTML = `<div class="action-panel"><div class="action-title">☀️ ${loc.name}</div>
-          <div class="action-sub">${loc.story}</div>
+        // สรุปเมื่อคืนแบบไอคอน อ่านแวบเดียวเข้าใจ
+        const res = results[meta.night];
+        const chips = res ? `<div class="morn-chips">
+            ${res.deaths && res.deaths.length ? `<span class="mchip bad">☠️ เสียชีวิต ${res.deaths.length}</span>` : '<span class="mchip ok">🕊️ ไม่มีใครตาย</span>'}
+            ${res.saved ? `<span class="mchip ok">💚 หมอช่วยไว้ ${res.saved}</span>` : ''}
+            ${res.lordSaved ? '<span class="mchip ok">⚔️ องครักษ์ปกป้องเจ้าเมือง</span>' : ''}
+            ${res.stealTotal ? `<span class="mchip warn">🪙 โจรปล้นได้ ${res.stealTotal} ไร่</span>` : ''}
+            ${res.gifted ? '<span class="mchip">👑 เจ้าเมืองแจกศักดินา</span>' : ''}
+          </div>` : '';
+        el.innerHTML = `<div class="action-panel">${chips}
+          <div class="action-title">☀️ วันที่ ${meta.day} ณ ${loc.name}</div>
+          <div class="action-sub">${loc.hook}</div>
+          <div class="trivia" style="margin:8px 0"><b>💡 รู้หรือไม่?</b> ${loc.fact}</div>
           <div class="action-sub" style="color:var(--gold)">สนทนากับเพื่อนในแชท หาตัวผู้ต้องสงสัย ก่อนถึงเวลาลงมติ!</div></div>${inboxPanel()}`;
         break;
       }
@@ -242,7 +284,7 @@ const Player = (() => {
       case 'enemy': {
         const q = meta.killQuota || 1;
         actionUI(el, {
-          title: `🗡️ โหวตลอบสังหาร (คืนนี้สังหารได้ ${q} คน)`,
+          title: `🩸 ร่วมโหวตเลือกเหยื่อของฝ่ายเจ้า (คืนนี้สังหารได้ ${q} คน)`,
           sub: 'ศัตรูทุกคนโหวตเลือกเหยื่อ เสียงมากสุดถูกสังหาร เสมอกันระบบสุ่ม — คุยกันในแชทช่อง "ฝ่ายศัตรู"',
           max: q, excludeRoles: ['enemy'], allowEmpty: true, skippable: false,
           submit: (v) => submitAct('enemyVotes', (Array.isArray(v) && v.length) ? v : '-', 'ส่งเสียงโหวตแล้ว'),
@@ -252,8 +294,8 @@ const Player = (() => {
       case 'thief': {
         if (meta.activeThief === pid) {
           actionUI(el, {
-            title: '🪙 คืนนี้เจ้าถูกสุ่มให้ลงมือ! เลือกเหยื่อปล้น 3 คน',
-            sub: `ปล้นได้คนละ 25 ไร่ (ถ้าเหยื่อไม่มีศักดินา ได้ 0) — แก๊งสะสมครบ ${THIEF_GOAL} ไร่ = ชนะ`,
+            title: '🏴 คืนนี้เจ้าถูกสุ่มให้ลงมือ! เลือก 3 คนเพื่อขโมยศักดินา',
+            sub: `ปล้นได้คนละ 25 ไร่ (ถ้าเหยื่อไม่มีศักดินา ได้ 0) — แก๊งสะสมครบ ${goalP} ไร่ = ชนะ`,
             max: STEAL_TARGETS, excludeRoles: ['thief'], skippable: true,
             submit: (v) => submitAct('steal', (v === '-' || !v.length) ? '-' : v, 'ลงมือปล้นแล้ว รอผลตอนเช้ามืด'),
           });
@@ -265,7 +307,7 @@ const Player = (() => {
       }
       case 'doctor':
         actionUI(el, {
-          title: '💚 เลือกผู้ที่จะคุ้มครองคืนนี้ (1 คน)',
+          title: '🩺 เลือก 1 คนที่ต้องการรักษาคืนนี้',
           sub: 'ต้องเดาเอง — ถ้าคนที่เลือกถูกกำจัดคืนนี้ เขาจะรอดชีวิต (เลือกตัวเองก็ได้)',
           max: 1, includeSelf: true, skippable: true,
           submit: (v) => submitAct('protect', v === '-' ? '-' : v[0], 'จัดยาสมุนไพรเฝ้าคุ้มครองแล้ว'),
@@ -275,8 +317,8 @@ const Player = (() => {
         if (meta.execNight && !submitted.nobleInv) {
           // คืนประหาร: สืบก่อน แล้วค่อยเลือกประหาร
           actionUI(el, {
-            title: '🔎 สืบสวน: ผู้นี้เป็นโจรหรือไม่ (1 คน)',
-            sub: 'คืนนี้เป็นคืนที่ 4! หลังสืบแล้วจะได้เลือกลงดาบประหารโจรด้วย',
+            title: '⚖️ ตรวจสอบผู้ต้องสงสัย 1 คน (โจรหรือไม่)',
+            sub: 'คืนนี้เป็นคืนประหาร! หลังสืบแล้วจะได้เลือกลงดาบประหารโจรด้วย',
             max: 1, skippable: true,
             submit: async (v) => {
               await Net.set(`${R}/act/${n}/nobleInv/${pid}`, v === '-' ? '-' : v[0]);
@@ -286,14 +328,14 @@ const Player = (() => {
           });
         } else if (meta.execNight) {
           actionUI(el, {
-            title: '⚔️ ลงดาบประหารโจร (เลือกได้ 1 คน หรือข้าม)',
-            sub: '⚠️ ถ้าชี้ผิด (ไม่ใช่โจร) เจ้าจะถูกกำจัดแทน! ไม่มั่นใจให้ข้าม',
+            title: '🗡️ ชี้ตัวโจรเพื่อประหาร — ถ้าผิดเจ้าตายแทน!',
+            sub: '⚠️ เลือก 1 คน หรือข้ามถ้าไม่มั่นใจ (ชี้ผิด = เจ้าถูกกำจัดแทน)',
             max: 1, skippable: true,
             submit: (v) => submitAct('nobleExec', v === '-' ? '-' : v[0], v === '-' ? 'คืนนี้เก็บดาบไว้ก่อน' : 'ลงดาบแล้ว... รอผลตอนเช้า'),
           });
         } else {
           actionUI(el, {
-            title: '🔎 สืบสวน: ผู้นี้เป็นโจรหรือไม่ (1 คน)',
+            title: '⚖️ ตรวจสอบผู้ต้องสงสัย 1 คน (โจรหรือไม่)',
             sub: `ผลจะส่งถึงเจ้าลับๆ ตอนเช้า — อีก ${(4 - (n % 4)) % 4 || 4} คืนจะถึงคืนประหาร`,
             max: 1, skippable: true,
             submit: (v) => submitAct('nobleInv', v === '-' ? '-' : v[0], 'ออกตระเวนสืบแล้ว'),
@@ -303,7 +345,7 @@ const Player = (() => {
       }
       case 'spy':
         actionUI(el, {
-          title: '🏮 สืบสวน: ผู้นี้เป็นศัตรูหรือไม่ (1 คน)',
+          title: '🕵️ สืบหาศัตรู 1 คนอย่างลับๆ',
           sub: 'ผลจะส่งถึงเจ้าลับๆ โดยไม่มีใครรู้ว่าเจ้าคือจารชน',
           max: 1, skippable: true,
           submit: (v) => submitAct('spyInv', v === '-' ? '-' : v[0], 'จุดโคมออกสืบแล้ว'),
@@ -312,7 +354,7 @@ const Player = (() => {
       case 'lord': {
         if (meta.giftNight) {
           actionUI(el, {
-            title: '👑 พระราชทานศักดินา 25 ไร่ (1 คน)',
+            title: '👑 เลือกผู้รับพระราชทานศักดินา 25 ไร่ (1 คน)',
             sub: 'ระวัง! ถ้าเผลอให้โจร ศักดินาจะเข้าแก๊งโจรโดยปริยาย',
             max: 1, skippable: true,
             submit: (v) => submitAct('gift', v === '-' ? '-' : v[0], 'พระราชทานเรียบร้อย'),
@@ -324,8 +366,10 @@ const Player = (() => {
       }
       default:
         doneWrap(myRole === 'mad'
-          ? 'คืนนี้เจ้านอนหัวเราะคนเดียว ฮิๆๆ... พรุ่งนี้ต้องทำตัวน่าสงสัยให้ถูกโหวตออกให้ได้!'
-          : 'เจ้าหลับตาลง... ค่ำคืนนี้ขอให้ปลอดภัย');
+          ? '🤪 รอคอยเวลาของเจ้าในความเงียบ... พรุ่งนี้ทำตัวน่าสงสัยให้ถูกโหวตออกให้ได้ (นับตั้งแต่วันที่ 2)!'
+          : myRole === 'slave'
+            ? '🔗 หลับตารอการตัดสินในวันรุ่งขึ้น'
+            : '💤 หลับตารอข่าวยามเช้า — ขอให้ปลอดภัย');
     }
   }
 
@@ -420,9 +464,16 @@ const Player = (() => {
     $('chat-input').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
   }
   function bindChat() {
-    const chans = chatChannelsFor(myRole);
+    // กันชะโงก: ทุกคนมี 2 แท็บหน้าตาเหมือนกันหมด — "ช่องรวม" + "ช่องลับ" สีเดียวกัน
+    // คนมีทีมได้แชททีม คนไม่มีทีมได้สมุดลับส่วนตัว → มองข้างๆ แยกไม่ออกว่าใครอาชีพไหน
+    const team = CHAT_CHANNELS.find(c => c.roles && c.roles.includes(myRole));
+    const chans = [
+      { id: 'all', name: '💬 ช่องรวม' },
+      { id: team ? team.id : 'note-' + pid, name: '🔒 ช่องลับ' },
+    ];
+    if (chatCh !== 'all' && !chans.some(c => c.id === chatCh)) chatCh = 'all';
     $('chat-tabs').innerHTML = chans.map(c =>
-      `<div class="chat-tab ${c.id === chatCh ? 'on' : ''}" data-ch="${c.id}" style="--tc:${c.color}">${c.name}</div>`).join('');
+      `<div class="chat-tab ${c.id === chatCh ? 'on' : ''}" data-ch="${c.id}" style="--tc:var(--silver)">${c.name}</div>`).join('');
     $('chat-tabs').querySelectorAll('.chat-tab').forEach(t => {
       t.onclick = () => { chatCh = t.dataset.ch; bindChat(); };
     });
@@ -437,7 +488,9 @@ const Player = (() => {
     chatCount[chatCh] = msgs.length;
     el.innerHTML = msgs.map(m =>
       `<div class="cmsg ${m.pid === pid ? 'mine' : ''}"><b>${esc(m.name)}:</b> ${esc(m.text)}</div>`).join('') ||
-      '<div class="cmsg sys">ยังไม่มีข้อความ — เริ่มคุยกันเลย</div>';
+      (chatCh.startsWith('note-')
+        ? '<div class="cmsg sys">🔒 สมุดลับส่วนตัวของเจ้า — จดข้อสงสัยได้ ไม่มีใครเห็นนอกจากเจ้า</div>'
+        : '<div class="cmsg sys">ยังไม่มีข้อความ — เริ่มคุยกันเลย</div>');
     scrollChat();
   }
   function scrollChat() { const el = $('chat-msgs'); el.scrollTop = el.scrollHeight; }
