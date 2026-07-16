@@ -48,8 +48,26 @@ const Host = (() => {
     const list = Object.entries(players);
     $('hl-count').textContent = list.length;
     $('hl-players').innerHTML = list.map(([pid, p]) =>
-      `<div class="lobby-p">${Art.avatar(p.avatar || 0)}<div class="nm">${esc(p.name)}</div></div>`).join('') ||
+      `<div class="lobby-p" data-pid="${pid}" title="แตะเพื่อเปลี่ยนชื่อ/เตะออก">${Art.avatar(p.avatar || 0)}<div class="nm">${esc(p.name)}</div></div>`).join('') ||
       '<p class="p-note">ยังไม่มีใครเข้าเมือง...</p>';
+    $('hl-players').querySelectorAll('.lobby-p').forEach(el => {
+      el.onclick = () => {
+        const pid = el.dataset.pid, p = players[pid];
+        if (!p) return;
+        App.modal(`<h2 class="panel-title sm">จัดการ: ${esc(p.name)}</h2>
+          <div class="field"><label>เปลี่ยนชื่อ (กรณีชื่อไม่เหมาะสม)</label>
+            <input id="lm-name" maxlength="14" value="${esc(p.name)}"></div>
+          <button class="btn btn-gold w100" id="lm-rename">💾 บันทึกชื่อใหม่</button>
+          <button class="btn btn-red w100" id="lm-kick">🚪 เตะออกจากห้อง</button>
+          <button class="btn btn-ghost w100" onclick="App.closeModal()">ปิด</button>`);
+        document.getElementById('lm-rename').onclick = async () => {
+          const nm = document.getElementById('lm-name').value.trim();
+          if (nm) { await Net.set(R + '/players/' + pid + '/name', nm); App.toast('เปลี่ยนชื่อแล้ว'); }
+          App.closeModal();
+        };
+        document.getElementById('lm-kick').onclick = async () => { await Net.remove(R + '/players/' + pid); App.toast('เตะออกแล้ว'); App.closeModal(); };
+      };
+    });
     const n = list.length;
     const btn = $('btn-start');
     btn.disabled = n < MIN_PLAYERS;
@@ -110,11 +128,48 @@ const Host = (() => {
       Net.on(R + '/goal', v => { if (v) goal = v; renderLoot(); }),
       Net.on(R + '/lordShield', v => { lordShield = !!v; }),
       Net.on(R + '/act', v => { acts = v || {}; }),
-      Net.on(R + '/votes', v => { votes = v || {}; }),
+      Net.on(R + '/votes', v => { votes = v || {}; if (meta && meta.phase === 'vote') renderNarration(); }),
     );
     $('btn-skip').onclick = () => advance(true);
+    $('btn-music').onclick = () => { const m = Sound.toggleMute(); $('btn-music').textContent = m ? '🔇 ปิดเพลง' : '🔊 เพลง'; };
+    // QR + รหัสห้อง โชว์ตลอดเกม — เด็กหลุดสแกนกลับเข้าได้ (พิมพ์ชื่อเดิม)
+    const joinUrl = location.origin + location.pathname + '?room=' + code;
+    $('hr-code').textContent = code;
+    $('hr-qr').innerHTML = '';
+    try { new QRCode($('hr-qr'), { text: joinUrl, width: 56, height: 56, correctLevel: QRCode.CorrectLevel.M }); } catch (e) {}
+    $('h-rejoin').onclick = () => {
+      App.modal(`<h2 class="panel-title">กลับเข้าเกม / เข้าห้องนี้</h2>
+        <div class="room-code">${code}</div>
+        <div id="qr-big" style="display:flex;justify-content:center;padding:12px;background:#fff;border-radius:14px;width:fit-content;margin:0 auto 10px"></div>
+        <div class="join-url">${joinUrl}</div>
+        <p class="p-note" style="color:var(--gold)">📢 เด็กที่หลุดจากเกม: สแกนแล้วพิมพ์ "ชื่อเดิมให้ตรงเป๊ะ" จะกลับเข้าตำแหน่งเดิมทันที</p>
+        <button class="btn btn-gold w100" onclick="App.closeModal()">ปิด</button>`);
+      try { new QRCode(document.getElementById('qr-big'), { text: joinUrl, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M }); } catch (e) {}
+    };
     if (tickTimer) clearInterval(tickTimer);
     tickTimer = setInterval(tick, 600);
+  }
+
+  // ---------------- แผงควบคุมครู: แตะชื่อผู้เล่นบนกระดาน ----------------
+  function playerMenu(pid) {
+    const p = players[pid];
+    if (!p) return;
+    App.modal(`<h2 class="panel-title sm">จัดการ: ${esc(p.name)}</h2>
+      <div class="field"><label>เปลี่ยนชื่อ (กรณีชื่อไม่เหมาะสม)</label>
+        <input id="pm-name" maxlength="14" value="${esc(p.name)}"></div>
+      <button class="btn btn-gold w100" id="pm-rename">💾 บันทึกชื่อใหม่</button>
+      ${alive[pid]
+        ? '<button class="btn btn-red w100" id="pm-kill">✝ กำจัดออกจากเกม (เด็กออกจากห้อง/ป่วน)</button>'
+        : '<button class="btn btn-blue w100" id="pm-revive">💚 ชุบชีวิตกลับเข้าเกม</button>'}
+      <button class="btn btn-ghost w100" onclick="App.closeModal()">ปิด</button>`);
+    document.getElementById('pm-rename').onclick = async () => {
+      const nm = document.getElementById('pm-name').value.trim();
+      if (nm) { await Net.set(R + '/players/' + pid + '/name', nm); App.toast('เปลี่ยนชื่อแล้ว'); }
+      App.closeModal();
+    };
+    const k = document.getElementById('pm-kill'), rv = document.getElementById('pm-revive');
+    if (k) k.onclick = async () => { await Net.set(R + '/alive/' + pid, false); log(`👨‍🏫 ครูกำจัด ${p.name} ออกจากเกม`); App.closeModal(); await checkWin(); };
+    if (rv) rv.onclick = async () => { await Net.set(R + '/alive/' + pid, true); log(`👨‍🏫 ครูชุบชีวิต ${p.name} กลับเข้าเกม`); App.closeModal(); };
   }
 
   // ---------------- นาฬิกา + เดินเฟสอัตโนมัติ ----------------
@@ -166,10 +221,11 @@ const Host = (() => {
     await FX.play('dawn', { day, loc, npc: npcLine('dawn', day) });
     await setPhase('day', meta.night, day, meta0().day);
     log(`🌅 เช้าวันที่ ${day} ณ ${loc.name}`);
+    Sound.music('day');
   }
 
   async function toVote() {
-    await setPhase('vote', meta.night, meta.day, 1.5, { voteQuota: voteQuota(alivePids().length) });
+    await setPhase('vote', meta.night, meta.day, 1, { voteQuota: voteQuota(alivePids().length) }); // 60 วิ — สั้น กดดัน
     log(`🗳️ เริ่มการลงมติขับไล่ (ออก ${voteQuota(alivePids().length)} คน)`);
   }
 
@@ -223,11 +279,11 @@ const Host = (() => {
     await FX.play('night', { night: n, npc: npcLine('night', n) });
     await setPhase('night', n, meta.day, meta0().night, { activeThief: active || null });
     log(`🌙 คืนที่ ${n} เริ่มขึ้น — ทุกบทบาทลงมือในความมืด`);
-    Sound.ambience(true);
+    Sound.music('night');
   }
 
   async function resolveNight() {
-    Sound.ambience(false);
+    Sound.music(null);
     const n = meta.night, a = (acts && acts[n]) || {};
     const ev = [];           // เหตุการณ์ FX ตามลำดับ
     const deaths = new Map(); // pid -> cause
@@ -367,18 +423,25 @@ const Host = (() => {
     await Net.update(R, upd);
     for (const m of inbox) await Net.push(R + '/private/' + m.pid, { night: n, text: m.text });
 
-    // เล่นอนิเมชั่นสรุปเช้าบนจอครู
-    for (const e of ev) await FX.play(e.type, e);
-    for (const x of pub.exec) await FX.play('execute', { name: '...', text: x.ok ? 'ตำรวจหลวงกำจัดโจรได้สำเร็จ!' : 'ขุนนางชี้ตัวผิด จึงต้องรับโทษเสียเอง' });
+    // คัตซีนเงาสั้นๆ (ไร้ชื่อ สร้างอารมณ์) → ปิดท้ายด้วย "รายงานยามเช้า" ใบเดียวอ่านง่าย
+    if (pub.gifted) await FX.play('cutGift');
+    if (pub.stealCount) await FX.play('cutSteal');
+    if (pub.exec.length) await FX.play('cutExec');
+    if (pub.deaths.some(d => d.cause === 'kill') || pub.lordSaved) await FX.play('cutKill');
+    if (pub.saved) await FX.play('cutHeal');
     for (const d of pub.deaths) {
       const nm = players[d.pid].name;
-      if (d.cause === 'kill') { await FX.play('kill', { name: nm, role: d.role }); log(`☠️ ${nm} (${ROLES[d.role].name}) ถูกลอบสังหาร`); }
-      else if (d.cause === 'bankrupt') { await FX.play('bankrupt', { name: nm, role: d.role }); log(`🪙 ${nm} (${ROLES[d.role].name}) สิ้นเนื้อประดาตัว ถูกกำจัด`); }
-      else { await FX.play('kill', { name: nm, role: d.role }); log(`⚔️ ${nm} (${ROLES[d.role].name}) ถูกประหาร/รับโทษ`); }
+      if (d.cause === 'kill') log(`☠️ ${nm} (${ROLES[d.role].name}) ถูกลอบสังหาร`);
+      else if (d.cause === 'bankrupt') log(`🪙 ${nm} (${ROLES[d.role].name}) สิ้นเนื้อประดาตัว ถูกกำจัด`);
+      else log(`⚔️ ${nm} (${ROLES[d.role].name}) ถูกประหาร/รับโทษ`);
     }
-    if (pub.lordSaved) { await FX.play('heal', { text: '⚔️ องครักษ์สละชีพปกป้องเจ้าเมืองจากการลอบสังหาร! (ใช้ได้ครั้งเดียว)' }); log('⚔️ องครักษ์ปกป้องเจ้าเมืองไว้ได้ — โล่หมดแล้ว'); }
-    if (pub.saved) { await FX.play('heal', { text: `หมอหลวงช่วยชีวิตผู้เคราะห์ร้ายไว้ได้ ${pub.saved} คน` }); log(`💚 หมอหลวงช่วยชีวิตไว้ ${pub.saved} คน`); }
+    if (pub.lordSaved) log('⚔️ องครักษ์ปกป้องเจ้าเมืองไว้ได้ — โล่หมดแล้ว');
+    if (pub.saved) log(`💚 หมอหลวงช่วยชีวิตไว้ ${pub.saved} คน`);
     if (pub.deaths.length === 0 && !pub.saved) log('🕊️ เช้านี้ทุกคนปลอดภัย');
+    await FX.play('morning', {
+      night: n, saved: pub.saved, lordSaved: pub.lordSaved, stealTotal: pub.stealTotal, gifted: pub.gifted,
+      deaths: pub.deaths.map(d => ({ name: players[d.pid].name, role: d.role, cause: d.cause })),
+    });
 
     if (loot > 0) log(`🪙 ชุมโจรสะสมศักดินาแล้ว ${loot}/${goal} ไร่`);
     if (await checkWin()) return;
@@ -404,6 +467,7 @@ const Host = (() => {
       scores = await computeScores(team);
       await Net.set(R + '/scores', scores);
     } catch (e) { console.error('score error', e); }
+    Sound.music(null);
     await Net.set(R + '/winner', { team, title, text });
     await setPhase('end', meta.night, meta.day, 0);
     await FX.play('win', { team, title, text, sad: team === 'enemy' });
@@ -566,12 +630,21 @@ const Host = (() => {
     el.textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
     el.classList.toggle('urgent', s <= 20);
   }
+  function voteLiveHtml() {
+    const dv = (votes && votes[meta.day]) || {};
+    const byTarget = {};
+    for (const v in dv) (Array.isArray(dv[v]) ? dv[v] : []).forEach(t => { (byTarget[t] = byTarget[t] || []).push(v); });
+    const rows = Object.entries(byTarget).sort((a, b) => b[1].length - a[1].length).map(([t, vs]) =>
+      `<div class="vl-row"><b class="vl-target">${nameOf(t)}</b><span class="vl-count">${vs.length} เสียง</span><span class="vl-voters">← ${vs.map(nameOf).join(', ')}</span></div>`).join('');
+    return `<div class="vl-wrap">${rows || '<div class="vl-row">ยังไม่มีใครลงมติ...</div>'}</div>`;
+  }
   function renderNarration() {
     if (!meta) return;
     const el = $('h-narration'), loc = $('h-loc-name');
     if (meta.phase === 'end') return;
     if (meta.phase === 'reveal') { loc.textContent = 'เปิดเรื่อง'; el.textContent = STORY.opening; }
     else if (meta.phase === 'night') { loc.textContent = `คืนที่ ${meta.night}`; el.textContent = STORY.nightIntro + (meta.execNight ? ' — คืนนี้ขุนนางประหารโจรได้!' : '') + (meta.giftNight ? ' — คืนนี้เจ้าเมืองแจกศักดินา' : ''); }
+    else if (meta.phase === 'vote') { loc.textContent = `🗳️ ลงมติ — เห็นกันหมดว่าใครโหวตใคร`; el.innerHTML = voteLiveHtml(); }
     else if (meta.day) { const l = locationOfDay(meta.day); loc.textContent = `วันที่ ${meta.day} — ${l.name}`; el.textContent = `${l.hook} • 💡 ${l.fact}`; }
   }
   function renderLoot() {
@@ -593,9 +666,10 @@ const Host = (() => {
       const dead = !alive[pid];
       const r = roles[pid];
       const roleTag = (showRoles || dead) && r ? `<div class="sk" style="color:${ROLES[r].color}">${ROLES[r].name}</div>` : '<div class="sk">&nbsp;</div>';
-      return `<div class="pb-card ${dead ? 'dead' : ''}">${Art.avatar(p.avatar || 0)}
+      return `<div class="pb-card ${dead ? 'dead' : ''}" data-pid="${pid}" title="แตะเพื่อจัดการผู้เล่นนี้">${Art.avatar(p.avatar || 0)}
         <div class="nm">${esc(p.name)}</div>${roleTag}</div>`;
     }).join('');
+    $('h-board').querySelectorAll('.pb-card').forEach(c => { c.onclick = () => playerMenu(c.dataset.pid); });
   }
   function log(text) {
     const el = $('h-log');
