@@ -5,7 +5,7 @@
 const Player = (() => {
   let code = null, R = null, pid = null, me = null;
   let meta = null, players = {}, roles = {}, alive = {}, sak = {};
-  let goalP = 450, results = {};
+  let goalP = 450, results = {}, votesAll = {};
   let myRole = null, revealShown = false, lastPhaseKey = '';
   let inboxKeys = new Set(), inboxMsgs = [], firstInbox = true;
   let chatCh = 'all', chatUnsub = null, chatOpen = false, unread = 0, chatCount = {};
@@ -59,6 +59,7 @@ const Player = (() => {
       Net.on(R + '/private/' + pid, v => { onInbox(v); }),
       Net.on(R + '/goal', v => { if (v) goalP = v; }),
       Net.on(R + '/results', v => { results = v || {}; }),
+      Net.on(R + '/votes', v => { votesAll = v || {}; updateVoteLive(); }),
     );
     if (tickTimer) clearInterval(tickTimer);
     tickTimer = setInterval(renderTimer, 600);
@@ -373,18 +374,33 @@ const Player = (() => {
     }
   }
 
-  // ---------------- โหวต ----------------
+  // ---------------- โหวต (ทุกคนเห็นสดว่าใครโหวตใคร) ----------------
+  function voteLiveHtmlP() {
+    if (!meta || meta.phase !== 'vote') return '';
+    const dv = votesAll[meta.day] || {};
+    const byTarget = {};
+    for (const v in dv) (Array.isArray(dv[v]) ? dv[v] : []).forEach(t => { (byTarget[t] = byTarget[t] || []).push(v); });
+    const nm = (p) => players[p] ? esc(players[p].name) : '?';
+    const rows = Object.entries(byTarget).sort((a, b) => b[1].length - a[1].length).map(([t, vs]) =>
+      `<div class="vl-row"><b class="vl-target">${nm(t)}</b><span class="vl-count">${vs.length}</span><span class="vl-voters">← ${vs.map(nm).join(', ')}</span></div>`).join('');
+    return `<div class="vl-wrap"><div class="vl-title">👁 มติสดของทั้งเมือง</div>${rows || '<div class="vl-row">ยังไม่มีใครลงมติ...</div>'}</div>`;
+  }
+  function updateVoteLive() {
+    const box = document.getElementById('p-votelive');
+    if (box) box.innerHTML = voteLiveHtmlP();
+  }
   function renderVote(el) {
     const q = meta.voteQuota || 1;
     Net.once(`${R}/votes/${meta.day}/${pid}`).then(v => {
-      if (v) { el.innerHTML = `<div class="done-note">✔ ลงมติแล้ว รอเพื่อนๆ...</div>${inboxPanel()}`; return; }
-      actionUI(el, {
+      if (v) { el.innerHTML = `<div class="done-note">✔ ลงมติแล้ว รอเพื่อนๆ...</div><div id="p-votelive">${voteLiveHtmlP()}</div>${inboxPanel()}`; return; }
+      el.innerHTML = '<div id="p-voteui"></div><div id="p-votelive">' + voteLiveHtmlP() + '</div>';
+      actionUI(el.querySelector('#p-voteui'), {
         title: `🗳️ ลงมติขับผู้ต้องสงสัย (เลือก ${q} คน)`,
-        sub: 'ผู้ได้เสียงมากที่สุดจะถูกขับออกจากพระนคร — เลือกให้ดี ประวัติศาสตร์จะจารึก',
+        sub: '⚠️ ทุกคนเห็นหมดว่าใครโหวตใคร — เลือกให้ดี ประวัติศาสตร์จะจารึก',
         max: q, allowEmpty: false, skippable: false,
         submit: async (v) => {
           await Net.set(`${R}/votes/${meta.day}/${pid}`, v);
-          el.innerHTML = `<div class="done-note">✔ ลงมติแล้ว รอเพื่อนๆ...</div>`;
+          el.innerHTML = `<div class="done-note">✔ ลงมติแล้ว รอเพื่อนๆ...</div><div id="p-votelive">${voteLiveHtmlP()}</div>`;
           Sound.chime();
         },
       });
