@@ -346,3 +346,20 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
 .tl-line { font-size: 0.88rem; font-weight: 300; padding: 2px 0; }
 .sum-note { font-size: 0.78rem; opacity: 0.7; margin-top: 8px; }
 .sum-btns { display: flex; gap: 10px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
+
+/* ---------- กันชะโงก: กดค้างดูบทบาท ---------- */
+.rs-peek { color: var(--gold-dim); font-size: 0.95rem; user-select: none; -webkit-user-select: none; }
+#p-rolestrip { cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; }
+.peek-ov { position: fixed; inset: 0; z-index: 90; background: rgba(5,7,22,0.9); display: flex; align-items: center; justify-content: center; padding: 20px; animation: viewIn 0.12s; }
+.peek-card { background: var(--panel); border: 2px solid var(--tint, var(--line)); border-radius: 18px; padding: 18px 22px; text-align: center; max-width: 340px; box-shadow: 0 0 40px rgba(0,0,0,0.6); }
+.peek-card h3 { font-size: 1.5rem; margin: 6px 0 2px; }
+.peek-card .cn { font-size: 0.85rem; opacity: 0.85; margin-bottom: 8px; }
+.peek-card .ab { font-size: 0.9rem; color: var(--gold-dim); }
+.peek-card .wr { font-size: 0.82rem; color: #ff9b9b; margin-top: 6px; }
+
+/* ---------- สรุปเช้าแบบไอคอน ---------- */
+.morn-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.mchip { font-size: 0.85rem; padding: 4px 12px; border-radius: 999px; background: rgba(0,0,0,0.35); border: 1px solid var(--line); }
+.mchip.bad { border-color: #e05050; color: #ff9b9b; }
+.mchip.ok { border-color: #2faf66; color: #7fdba5; }
+.mchip.warn { border-color: var(--orange); color: #ffc98a; }
