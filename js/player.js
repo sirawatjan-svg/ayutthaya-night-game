@@ -294,7 +294,7 @@ const Player = (() => {
       case 'thief': {
         if (meta.activeThief === pid) {
           actionUI(el, {
-            title: '🏴 คืนนี้เจ้าถูกสุ่มให้ลงมือ! เลือก 3 คนเพื่อขโมยศักดินา',
+            title: `🏴 คืนนี้เจ้าถูกสุ่มให้ลงมือ! เลือก ${STEAL_TARGETS} คนเพื่อขโมยศักดินา`,
             sub: `ปล้นได้คนละ 25 ไร่ (ถ้าเหยื่อไม่มีศักดินา ได้ 0) — แก๊งสะสมครบ ${goalP} ไร่ = ชนะ`,
             max: STEAL_TARGETS, excludeRoles: ['thief'], skippable: true,
             submit: (v) => submitAct('steal', (v === '-' || !v.length) ? '-' : v, 'ลงมือปล้นแล้ว รอผลตอนเช้ามืด'),
