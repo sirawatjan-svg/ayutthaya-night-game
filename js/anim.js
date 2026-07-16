@@ -162,14 +162,16 @@ const FX = (() => {
       return show(card(`
         <div class="fx-art">${Art.icon('lantern', 90)}</div>
         <h2>คืนที่ ${o.night}</h2>
-        <div class="fx-sub">${o.text || STORY.nightIntro}</div>`, '#3ba7e8'), 3800, 'fx-dark');
+        <div class="fx-sub">${o.text || STORY.nightIntro}</div>
+        ${o.npc ? `<div class="fx-npc">💬 <b>${NPC_NAME}:</b> "${o.npc}"</div>` : ''}`, '#3ba7e8'), 4600, 'fx-dark');
     },
     dawn(o) {
       Sound.gong(); setTimeout(() => Sound.chime(), 900);
       return show(card(`
         <div class="fx-art fx-float">${Art.icon('rice', 90)}</div>
         <h2>เช้าวันที่ ${o.day} ณ ${o.loc.name}</h2>
-        <div class="fx-sub fx-story">${o.loc.hook}<br><br>💡 รู้หรือไม่? ${o.loc.fact}</div>`, '#f5c518'), 6000, 'fx-warm');
+        <div class="fx-sub fx-story">${o.loc.hook}<br><br>💡 รู้หรือไม่? ${o.loc.fact}</div>
+        ${o.npc ? `<div class="fx-npc">💬 <b>${NPC_NAME}:</b> "${o.npc}"</div>` : ''}`, '#f5c518'), 6800, 'fx-warm');
     },
     win(o) {
       if (o.sad) Sound.lose(); else Sound.fanfare();
