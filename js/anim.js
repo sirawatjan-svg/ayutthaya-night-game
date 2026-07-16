@@ -5,6 +5,7 @@
 
 const Sound = (() => {
   let ctx = null, ambGain = null, ambNodes = [];
+  let musGain = null, musTimer = null, musNodes = [], musMode = null, musMuted = false, musStep = 0;
   function ac() { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); if (ctx.state === 'suspended') ctx.resume(); return ctx; }
   function env(g, t, a, peak, d) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + d); }
   function tone(freq, type, dur, vol, when, bend) {
@@ -24,8 +25,67 @@ const Sound = (() => {
     const g = c.createGain(); env(g, t, 0.01, vol || 0.15, dur);
     src.connect(f).connect(g).connect(c.destination); src.start(t);
   }
+  // ---------- ดนตรีประกอบ: เพนทาโทนิกไทยสังเคราะห์ (คล้ายระนาด/ขลุ่ย ไม่ใช้ไฟล์) ----------
+  const PENTA = [0, 2, 5, 7, 9];
+  const noteHz = (root, deg) => root * Math.pow(2, (PENTA[((deg % 5) + 5) % 5] + 12 * Math.floor(deg / 5)) / 12);
+  function pluck(freq, when, vol, dur, type) {
+    if (!musGain) return;
+    const c = ac(), t = c.currentTime + when;
+    [0, 4].forEach((det, i) => {
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = type || 'triangle'; o.frequency.value = freq * (1 + det / 1200);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol * (i ? 0.35 : 1), t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(musGain); o.start(t); o.stop(t + dur + 0.05);
+    });
+  }
+  function stopMusic() {
+    if (musTimer) { clearInterval(musTimer); musTimer = null; }
+    musNodes.forEach(n => { try { n.stop(); } catch (e) {} }); musNodes = [];
+    if (musGain) {
+      const c = ac(), old = musGain; musGain = null;
+      try { old.gain.linearRampToValueAtTime(0.0001, c.currentTime + 1); } catch (e) {}
+      setTimeout(() => { try { old.disconnect(); } catch (e) {} }, 1400);
+    }
+  }
+  function startMusic(mode) {
+    const c = ac();
+    musGain = c.createGain(); musGain.gain.value = 0.0001; musGain.connect(c.destination);
+    musGain.gain.linearRampToValueAtTime(mode === 'night' ? 0.5 : 0.4, c.currentTime + 2.5);
+    musStep = 0;
+    const root = mode === 'night' ? 147 : 196; // D3 กลางคืน / G3 กลางวัน
+    let deg = 5;
+    if (mode === 'night') {
+      // โดรนเบาๆ (root + คู่ห้า) ให้บรรยากาศลึกลับ
+      [root / 2, (root / 2) * 1.498].forEach(f => {
+        const o = c.createOscillator(), g = c.createGain();
+        o.type = 'sine'; o.frequency.value = f; g.gain.value = 0.045;
+        o.connect(g).connect(musGain); o.start(); musNodes.push(o);
+      });
+    }
+    musTimer = setInterval(() => {
+      if (!musGain) return;
+      const s = musStep++;
+      if (mode === 'night') {
+        if (Math.random() < 0.34) return; // เว้นวรรคให้โปร่ง ไม่รบกวนสมาธิ
+        deg = Math.max(0, Math.min(9, deg + [-2, -1, 1, 2][Math.floor(Math.random() * 4)]));
+        pluck(noteHz(root, deg), 0, 0.15, 2.4, 'sine');       // ขลุ่ยโทนต่ำ
+        if (Math.random() < 0.22) pluck(noteHz(root, deg - 5), 0.03, 0.06, 3, 'sine');
+      } else {
+        const pat = [0, 2, 4, 2, 5, 4, 2, 1];                  // ทำนองระนาดสว่างๆ
+        if (s % 8 === 7 && Math.random() < 0.5) return;
+        deg = pat[s % 8] + (s % 32 >= 16 ? 2 : 0);
+        pluck(noteHz(root, deg + 5), 0, 0.12, 0.55, 'triangle');
+        if (s % 4 === 0) pluck(noteHz(root, deg), 0, 0.07, 1.1, 'sine');
+      }
+    }, mode === 'night' ? 900 : 400);
+  }
+
   return {
     unlock() { try { ac(); } catch (e) {} },
+    music(mode) { musMode = mode; stopMusic(); if (mode && !musMuted) startMusic(mode); },
+    toggleMute() { musMuted = !musMuted; stopMusic(); if (!musMuted && musMode) startMusic(musMode); return musMuted; },
     gong() { tone(160, 'sine', 2.2, 0.3); tone(240, 'sine', 1.8, 0.12, 0.02); tone(90, 'sine', 2.6, 0.18, 0.01); },
     drum() { tone(120, 'sine', 0.3, 0.5, 0, 45); noise(0.12, 0.2, 0, 300, 0.8); },
     chime() { [880, 1174, 1568].forEach((f, i) => tone(f, 'sine', 0.9, 0.12, i * 0.12)); },
@@ -156,6 +216,83 @@ const FX = (() => {
         <h2 class="fx-rainbow">คนบ้าถูกโหวตออก... คนบ้าชนะ!!</h2>
         <div class="fx-name">${o.name}</div>
         <div class="fx-sub">เสียงหัวเราะดังก้องทั่วพระนคร ฮ่าๆๆๆ</div>`, '#9b59b6'), 5000, 'fx-dark');
+    },
+    // ---------- คัตซีนเงา (สั้น ไร้ชื่อ — สร้างอารมณ์ก่อนรายงานเช้า) ----------
+    cutKill() {
+      Sound.whoosh(); setTimeout(() => Sound.slash(), 1900); setTimeout(() => Sound.drum(), 2100);
+      return show(`<div class="cs-scene">
+        <svg viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice">
+          <defs><linearGradient id="csn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0a0e2a"/><stop offset="1" stop-color="#1a1235"/></linearGradient></defs>
+          <rect width="400" height="200" fill="url(#csn)"/><circle cx="330" cy="38" r="16" fill="#e8e4d0" opacity="0.85"/>
+          <path d="M0,150 L60,150 L70,110 L80,150 L400,150 L400,200 L0,200 Z" fill="#05060f"/>
+          <g class="cs-victim"><circle cx="290" cy="104" r="9" fill="#05060f"/><path d="M280,112 Q290,106 300,112 L302,150 L278,150 Z" fill="#05060f"/></g>
+          <g class="cs-assassin"><circle cx="0" cy="104" r="9" fill="#05060f"/><path d="M-10,112 Q0,106 10,112 L12,150 L-12,150 Z" fill="#05060f"/><path class="cs-dagger" d="M10,100 L26,88 L28,92 L14,104 Z" fill="#05060f"/></g>
+          <rect class="cs-flash" width="400" height="200" fill="#fff"/>
+        </svg>
+        <div class="cs-cap">เงามรณะเคลื่อนไหวในความมืด...</div></div>`, 3400, 'fx-dark fx-cut');
+    },
+    cutSteal() {
+      Sound.whoosh(); setTimeout(() => Sound.coins(), 1100);
+      return show(`<div class="cs-scene">
+        <svg viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice">
+          <rect width="400" height="200" fill="#0d0a22"/><circle cx="70" cy="40" r="14" fill="#e8e4d0" opacity="0.7"/>
+          <rect y="150" width="400" height="50" fill="#05060f"/>
+          <g><circle cx="160" cy="106" r="9" fill="#05060f"/><path d="M148,114 Q160,104 172,114 L174,150 L146,150 Z" fill="#05060f"/></g>
+          <rect x="210" y="122" width="60" height="30" rx="4" fill="#05060f"/>
+          <rect class="cs-lid" x="210" y="114" width="60" height="10" rx="4" fill="#05060f"/>
+          ${[0, 1, 2, 3, 4].map(i => `<circle class="cs-coin" style="animation-delay:${0.9 + i * 0.18}s" cx="${232 + i * 6}" cy="120" r="4" fill="#f5c518"/>`).join('')}
+        </svg>
+        <div class="cs-cap">มีมือมืดย่องเข้าปล้นยามวิกาล...</div></div>`, 3000, 'fx-dark fx-cut');
+    },
+    cutHeal() {
+      Sound.heal();
+      return show(`<div class="cs-scene">
+        <svg viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice">
+          <rect width="400" height="200" fill="#081420"/><rect y="150" width="400" height="50" fill="#04070c"/>
+          <ellipse cx="230" cy="146" rx="34" ry="8" fill="#04070c"/>
+          <g><circle cx="170" cy="112" r="9" fill="#04070c"/><path d="M158,120 Q170,110 182,120 L184,150 L156,150 Z" fill="#04070c"/></g>
+          <circle class="cs-glow" cx="230" cy="130" r="26" fill="#2faf66" opacity="0.25"/>
+          ${[0, 1, 2].map(i => `<ellipse class="cs-leaf" style="animation-delay:${i * 0.5}s" cx="${215 + i * 14}" cy="135" rx="4" ry="7" fill="#4fd88a"/>`).join('')}
+        </svg>
+        <div class="cs-cap">หมอหลวงเยียวยาผู้เคราะห์ร้ายในเงียบงัน...</div></div>`, 2800, 'fx-dark fx-cut');
+    },
+    cutExec() {
+      Sound.mystery(); setTimeout(() => Sound.slash(), 1700); setTimeout(() => Sound.gong(), 1900);
+      return show(`<div class="cs-scene">
+        <svg viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice">
+          <rect width="400" height="200" fill="#140d20"/><rect y="150" width="400" height="50" fill="#05060f"/>
+          <g><circle cx="250" cy="118" r="8" fill="#05060f"/><path d="M240,126 Q250,118 260,126 L262,150 L238,150 Z" fill="#05060f"/></g>
+          <g class="cs-noble"><circle cx="170" cy="100" r="9" fill="#05060f"/><path d="M158,108 Q170,100 182,108 L184,150 L156,150 Z" fill="#05060f"/><rect class="cs-sword" x="182" y="60" width="4" height="46" rx="2" fill="#05060f"/></g>
+          <rect class="cs-flash" style="animation-delay:1.7s" width="400" height="200" fill="#fff"/>
+        </svg>
+        <div class="cs-cap">ดาบหลวงถูกชักออกจากฝัก... คำตัดสินกำลังมาถึง</div></div>`, 3000, 'fx-dark fx-cut');
+    },
+    cutGift() {
+      Sound.chime(); setTimeout(() => Sound.coins(), 900);
+      return show(`<div class="cs-scene">
+        <svg viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice">
+          <rect width="400" height="200" fill="#160f04"/>
+          <path d="M120,150 L150,80 L165,110 L200,50 L235,110 L250,80 L280,150 Z" fill="#05060f"/>
+          <rect y="150" width="400" height="50" fill="#05060f"/>
+          <g class="cs-stamp"><circle cx="200" cy="100" r="30" fill="none" stroke="#f5c518" stroke-width="4"/><text x="200" y="112" text-anchor="middle" font-size="30" fill="#f5c518">👑</text></g>
+        </svg>
+        <div class="cs-cap">พระราชโองการจากจวนเจ้าเมือง...</div></div>`, 2600, 'fx-dark fx-cut');
+    },
+    // ---------- รายงานยามเช้าใบเดียว (ค้างนานพอให้ครูเล่า) ----------
+    morning(o) {
+      Sound.drum(); setTimeout(() => Sound.chime(), 600);
+      const CAUSE = { kill: 'ถูกลอบสังหาร', bankrupt: 'สิ้นเนื้อประดาตัว', execute: 'ถูกประหาร (โจรตัวจริง)', misjudge: 'รับโทษแทนที่ชี้ผิด' };
+      const dead = (o.deaths || []).map(d =>
+        `<div class="mr-line bad">☠️ <b>${d.name}</b> <span style="color:${ROLES[d.role].color}">(${ROLES[d.role].name})</span> — ${CAUSE[d.cause] || ''}</div>`).join('');
+      return show(card(`
+        <h2>📜 รายงานยามเช้า</h2>
+        <div class="mr-list">
+        ${dead || '<div class="mr-line ok">🕊️ เมื่อคืนไม่มีผู้เสียชีวิต</div>'}
+        ${o.lordSaved ? '<div class="mr-line ok">⚔️ องครักษ์สละชีพปกป้องเจ้าเมืองไว้ได้</div>' : ''}
+        ${o.saved ? `<div class="mr-line ok">💚 หมอหลวงช่วยชีวิตไว้ ${o.saved} คน</div>` : ''}
+        ${o.stealTotal ? `<div class="mr-line warn">🪙 โจรปล้นศักดินาไป ${o.stealTotal} ไร่</div>` : ''}
+        ${o.gifted ? '<div class="mr-line gold">👑 เจ้าเมืองพระราชทานศักดินาแก่ผู้หนึ่ง</div>' : ''}
+        </div>`, '#f5c518'), 8500, 'fx-dark');
     },
     night(o) {
       Sound.gong();
