@@ -363,3 +363,6 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
 .mchip.bad { border-color: #e05050; color: #ff9b9b; }
 .mchip.ok { border-color: #2faf66; color: #7fdba5; }
 .mchip.warn { border-color: var(--orange); color: #ffc98a; }
+
+/* ---------- คำพูด NPC ระหว่างฉากเปลี่ยนเวลา ---------- */
+.fx-npc { margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.25); font-size: 0.92rem; font-style: italic; opacity: 0.9; }
