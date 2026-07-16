@@ -163,7 +163,7 @@ const Host = (() => {
   async function toDay(day) {
     const loc = locationOfDay(day);
     await setPhase('dawnfx', meta.night, day, 0);
-    await FX.play('dawn', { day, loc });
+    await FX.play('dawn', { day, loc, npc: npcLine('dawn', day) });
     await setPhase('day', meta.night, day, meta0().day);
     log(`🌅 เช้าวันที่ ${day} ณ ${loc.name}`);
   }
@@ -220,7 +220,7 @@ const Host = (() => {
       await Net.set(R + '/thiefTurns/' + active, thiefTurns[active]);
     }
     await setPhase('nightfx', n, meta.day, 0);
-    await FX.play('night', { night: n });
+    await FX.play('night', { night: n, npc: npcLine('night', n) });
     await setPhase('night', n, meta.day, meta0().night, { activeThief: active || null });
     log(`🌙 คืนที่ ${n} เริ่มขึ้น — ทุกบทบาทลงมือในความมืด`);
     Sound.ambience(true);
