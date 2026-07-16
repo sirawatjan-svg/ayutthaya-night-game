@@ -43,16 +43,20 @@ const Sound = (() => {
       const c = ac();
       if (ambGain) { try { ambGain.gain.linearRampToValueAtTime(0.0001, c.currentTime + 0.8); } catch (e) {} ambNodes.forEach(n => { try { n.stop(c.currentTime + 1); } catch (e) {} }); ambGain = null; ambNodes = []; }
       if (!on) return;
-      ambGain = c.createGain(); ambGain.gain.value = 0.05; ambGain.connect(c.destination);
-      // เสียงจิ้งหรีด: pulse สองตัวความถี่สูง
-      [4200, 5300].forEach((f, k) => {
+      // เบาลงมาก + โทนต่ำลง ไม่แสบหู (feedback จากห้องเรียน: เสียงตึ๊ดยาวหนวกหู)
+      ambGain = c.createGain(); ambGain.gain.value = 0.016; ambGain.connect(c.destination);
+      [2300, 3050].forEach((f, k) => {
         const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = f;
         const g = c.createGain(); g.gain.value = 0;
-        const lfo = c.createOscillator(); lfo.type = 'square'; lfo.frequency.value = 14 + k * 5;
+        const lfo = c.createOscillator(); lfo.type = 'square'; lfo.frequency.value = 6 + k * 3;
         const lg = c.createGain(); lg.gain.value = 0.5;
         lfo.connect(lg).connect(g.gain);
+        // คลื่นช้าอีกชั้น ให้เสียงจิ้งหรีดดัง-เบาเป็นระลอก ไม่ต่อเนื่องตลอด
+        const slow = c.createOscillator(); slow.type = 'sine'; slow.frequency.value = 0.09 + k * 0.05;
+        const sg = c.createGain(); sg.gain.value = 0.4;
+        slow.connect(sg).connect(g.gain);
         o.connect(g).connect(ambGain);
-        o.start(); lfo.start(); ambNodes.push(o, lfo);
+        o.start(); lfo.start(); slow.start(); ambNodes.push(o, lfo, slow);
       });
     },
   };
@@ -165,7 +169,7 @@ const FX = (() => {
       return show(card(`
         <div class="fx-art fx-float">${Art.icon('rice', 90)}</div>
         <h2>เช้าวันที่ ${o.day} ณ ${o.loc.name}</h2>
-        <div class="fx-sub fx-story">${o.loc.story}</div>`, '#f5c518'), 6000, 'fx-warm');
+        <div class="fx-sub fx-story">${o.loc.hook}<br><br>💡 รู้หรือไม่? ${o.loc.fact}</div>`, '#f5c518'), 6000, 'fx-warm');
     },
     win(o) {
       if (o.sad) Sound.lose(); else Sound.fanfare();
