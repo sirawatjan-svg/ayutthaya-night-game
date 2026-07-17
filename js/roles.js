@@ -5,14 +5,14 @@
 const ROLES = {
   lord: {
     id: 'lord', name: 'เจ้าเมือง', color: '#f5c518', colorName: 'สีเหลือง',
-    sakdina: 50000, team: 'villager', icon: 'chatra',
+    sakdina: 50000, team: 'villager', icon: 'chatra', portrait: 'assets/roles/lord.jpg',
     desc: 'ผู้ปกครองพระนคร ศักดินา 50,000 ไร่ แจกศักดินา 25 ไร่ให้ผู้อื่นได้คืนเว้นคืน',
     warn: 'ถ้าถูกกำจัดหรือโหวตออก ศัตรูชนะทันที! (มีองครักษ์รับดาบแทนการลอบสังหารได้ 1 ครั้ง)',
     ability: 'แจกศักดินา 25 ไร่ (คืนเว้นคืน) • องครักษ์ปกป้อง 1 ครั้ง',
   },
   mad: {
     id: 'mad', name: 'คนบ้า', color: '#9b59b6', colorName: 'สีม่วง',
-    sakdina: 100, team: 'mad', icon: 'swirl',
+    sakdina: 100, team: 'mad', icon: 'swirl', portrait: 'assets/roles/mad.jpg',
     desc: 'คนวิกลจริตข้างกำแพงเมือง ศักดินา 100 ไร่',
     warn: 'ถ้าถูกโหวตออกตั้งแต่วันที่ 2 เป็นต้นไป คนบ้าชนะทันที! (วันแรกยังไม่นับ)',
     ability: 'หลอกให้ชาวเมืองโหวตขับตัวเองออกให้ได้ (เริ่มนับวันที่ 2)',
