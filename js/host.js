@@ -44,12 +44,20 @@ const Host = (() => {
     $('btn-close-room').onclick = async () => { if (confirm('ปิดห้องนี้?')) { await Net.remove(R); location.href = location.pathname; } };
   }
 
+  let lobbyPrevCount = -1, lobbySeenPids = new Set();
   function renderLobby() {
     const list = Object.entries(players);
-    $('hl-count').textContent = list.length;
+    const countEl = $('hl-count');
+    countEl.textContent = list.length;
+    if (lobbyPrevCount !== -1 && list.length !== lobbyPrevCount) {
+      countEl.classList.remove('pop'); void countEl.offsetWidth; countEl.classList.add('pop');
+    }
+    lobbyPrevCount = list.length;
+    // เฉพาะคนที่เพิ่งเข้าใหม่ค่อยเด้ง+เฟดเข้า — คนเดิมอยู่นิ่งไม่กระพริบซ้ำทุกครั้งที่มีคนใหม่
     $('hl-players').innerHTML = list.map(([pid, p]) =>
-      `<div class="lobby-p" data-pid="${pid}" title="แตะเพื่อเปลี่ยนชื่อ/เตะออก">${Art.avatar(p.avatar || 0)}<div class="nm">${esc(p.name)}</div></div>`).join('') ||
+      `<div class="lobby-p ${lobbySeenPids.has(pid) ? 'still' : ''}" data-pid="${pid}" title="แตะเพื่อเปลี่ยนชื่อ/เตะออก">${Art.avatar(p.avatar || 0)}<div class="nm">${esc(p.name)}</div></div>`).join('') ||
       '<p class="p-note">ยังไม่มีใครเข้าเมือง...</p>';
+    list.forEach(([pid]) => lobbySeenPids.add(pid));
     $('hl-players').querySelectorAll('.lobby-p').forEach(el => {
       el.onclick = () => {
         const pid = el.dataset.pid, p = players[pid];
