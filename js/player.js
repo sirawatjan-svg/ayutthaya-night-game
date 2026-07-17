@@ -119,8 +119,11 @@ const Player = (() => {
   function peekCardHtml() {
     const r = ROLES[myRole];
     const s = myRole === 'enemy' ? 'ไร้ศักดินา' : `${sak[pid] != null ? sak[pid] : r.sakdina} ไร่`;
-    return `<div class="peek-card" style="--tint:${r.color}">
-      <div class="medal">${Art.roleMedallion(myRole, 80)}</div>
+    const head = r.portrait
+      ? `<img class="portrait-img" src="${r.portrait}" alt=""><span class="portrait-badge">${Art.roleMedallion(myRole, 36)}</span>`
+      : `<div class="medal">${Art.roleMedallion(myRole, 80)}</div>`;
+    return `<div class="peek-card ${r.portrait ? 'has-portrait' : ''}" style="--tint:${r.color}">
+      ${head}
       <h3 style="color:${r.color}">${r.name}</h3>
       <div class="cn">🏞️ ศักดินา ${s} • ป้ายสี: ${r.colorName}</div>
       <div class="ab">✨ ${r.ability}</div>
@@ -157,13 +160,20 @@ const Player = (() => {
     return `<div class="teammates">พวกเดียวกับเจ้า (${r.colorName}): ` +
       mates.map(p => `<b style="--tint2:${r.color}">${esc(players[p].name)}${alive[p] ? '' : ' ✝'}</b>`).join(', ') + '</div>';
   }
+  // การ์ดที่มี Character Key Art (ตอนนี้: เจ้าเมือง, คนบ้า) โชว์ภาพเต็มด้านบน+ตราไอคอนมุม
+  // บทบาทที่ยังไม่มีภาพ ใช้ไอคอนวงกลมกลางการ์ดเหมือนเดิม
+  function rcFrontInner(r) {
+    const body = `<h2>${r.name}</h2><div class="cn">ป้ายสีประจำพวก: ${r.colorName}</div>
+      <p>${r.desc}</p><div class="ab">✨ ${r.ability}</div>
+      ${r.warn ? `<div class="wr">⚠️ ${r.warn}</div>` : ''}`;
+    return r.portrait
+      ? `<img class="portrait-img" src="${r.portrait}" alt=""><span class="portrait-badge">${Art.roleMedallion(r.id, 44)}</span><div class="portrait-body">${body}</div>`
+      : `<div class="medal">${Art.roleMedallion(r.id, 110)}</div>${body}`;
+  }
   function roleCardHtml(r) {
     return `<div class="reveal-wrap"><div class="reveal-card flip" style="--tint:${r.color}">
-      <div class="rc-face rc-front" style="--tint:${r.color}">
-        <div class="medal">${Art.roleMedallion(r.id, 110)}</div>
-        <h2>${r.name}</h2><div class="cn">ป้ายสีประจำพวก: ${r.colorName}</div>
-        <p>${r.desc}</p><div class="ab">✨ ${r.ability}</div>
-        ${r.warn ? `<div class="wr">⚠️ ${r.warn}</div>` : ''}
+      <div class="rc-face rc-front ${r.portrait ? 'has-portrait' : ''}" style="--tint:${r.color}">
+        ${rcFrontInner(r)}
       </div></div></div>` + teammatesHtml();
   }
   function showRoleCard(withFlip) {
@@ -172,11 +182,8 @@ const Player = (() => {
     if (withFlip) {
       App.modal(`<div class="reveal-wrap"><div class="reveal-card" id="rvcard" style="--tint:${r.color}">
         <div class="rc-face rc-back"><div class="orn">๑๙๑</div><h2 style="color:var(--gold)">ชะตาของเจ้า</h2><p>แตะการ์ดเพื่อเปิดดูบทบาทลับ<br>อย่าให้ใครเห็นหน้าจอ!</p></div>
-        <div class="rc-face rc-front" style="--tint:${r.color}">
-          <div class="medal">${Art.roleMedallion(r.id, 110)}</div>
-          <h2>${r.name}</h2><div class="cn">ป้ายสีประจำพวก: ${r.colorName}</div>
-          <p>${r.desc}</p><div class="ab">✨ ${r.ability}</div>
-          ${r.warn ? `<div class="wr">⚠️ ${r.warn}</div>` : ''}
+        <div class="rc-face rc-front ${r.portrait ? 'has-portrait' : ''}" style="--tint:${r.color}">
+          ${rcFrontInner(r)}
         </div></div></div>${teammatesHtml()}<button class="btn btn-gold w100" onclick="App.closeModal()">รับชะตา</button>`);
       const c = document.getElementById('rvcard');
       c.onclick = () => { c.classList.add('flip'); Sound.whoosh(); };
