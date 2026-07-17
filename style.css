@@ -44,8 +44,18 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
 
 .panel {
   background: var(--panel); border: 1px solid var(--line); border-radius: 18px;
-  padding: 20px; backdrop-filter: blur(6px); box-shadow: 0 18px 50px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
+  padding: 20px; backdrop-filter: blur(6px);
+  box-shadow: 0 18px 50px rgba(0,0,0,0.45), 0 0 34px rgba(245,197,24,0.05), inset 0 1px 0 rgba(255,255,255,0.06);
 }
+/* แสงทองไหลผ่านหัวข้อพาเนล เบาๆ ครั้งเดียวทุก 12 วิ */
+.panel-title { position: relative; }
+.panel-title::after {
+  content: ''; position: absolute; inset: -4px -10px; pointer-events: none;
+  background: linear-gradient(100deg, transparent 42%, rgba(255,236,180,0.55) 50%, transparent 58%);
+  background-size: 220% 100%; background-position: -120% 0;
+  animation: titleGlint 12s ease-in-out infinite;
+}
+@keyframes titleGlint { 0%, 85% { background-position: -120% 0 } 92% { background-position: 120% 0 } 100% { background-position: 120% 0 } }
 .panel-narrow { max-width: 460px; width: 100%; margin: auto; }
 .panel-title { color: var(--gold); font-size: 1.7rem; margin-bottom: 14px; text-align: center; }
 .panel-title.sm { font-size: 1.15rem; text-align: left; margin: 10px 0 8px; }
@@ -72,7 +82,7 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
   margin-top: 8px;
 }
 .btn:hover { transform: translateY(-2px); filter: brightness(1.12); }
-.btn:active { transform: translateY(1px) scale(0.98); }
+.btn:active { transform: translateY(1px) scale(0.97); transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 .btn-big { font-size: 1.2rem; padding: 15px 22px; }
 .btn-sm { font-size: 0.85rem; padding: 6px 12px; }
@@ -84,6 +94,28 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
 .btn-blue:active { box-shadow: 0 2px 0 #144a78; }
 .btn-red { background: linear-gradient(180deg, #e85050, #b02020); border-color: #f0a0a0; }
 .btn-ghost { background: transparent; opacity: 0.8; }
+
+/* ---------- ธีมไม้แกะสลัก+ทอง — หน้าเมนู/ตั้งค่า/ล็อบบี้ทั้งหมด (ไม่แตะปุ่มกลางเกมที่ต้องกดไวตอนจับเวลา) ---------- */
+#v-join .btn, #v-create .btn, #v-hostlobby .btn, #v-plobby .btn, #modal .btn {
+  position: relative; overflow: hidden; font-family: 'Srisakdi', 'Mitr', cursive; font-weight: 400;
+  letter-spacing: 1px; border-radius: 11px; border-width: 2px;
+}
+#v-join .btn-gold, #v-create .btn-gold, #v-hostlobby .btn-gold, #v-plobby .btn-gold, #modal .btn-gold {
+  background: linear-gradient(180deg, rgba(58,42,10,0.55), rgba(30,20,4,0.75)), linear-gradient(180deg, #6b4a1a, #3a2a0a);
+  color: var(--gold); border-color: #d9a616; text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+  box-shadow: 0 6px 0 #241a06, 0 14px 30px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,215,120,0.25), inset 0 0 18px rgba(0,0,0,0.4);
+}
+#v-join .btn-blue, #v-create .btn-blue, #v-hostlobby .btn-blue, #v-plobby .btn-blue, #modal .btn-blue {
+  background: linear-gradient(180deg, rgba(30,20,10,0.55), rgba(18,12,6,0.75)), linear-gradient(180deg, #5a3d22, #2e1f10);
+  color: var(--cream); border-color: #b87a3a;
+  box-shadow: 0 6px 0 #1c1206, 0 14px 30px rgba(0,0,0,0.5), inset 0 1px 0 rgba(220,170,110,0.2), inset 0 0 18px rgba(0,0,0,0.4);
+}
+#v-join .btn::before, #v-create .btn::before, #v-hostlobby .btn::before, #v-plobby .btn::before, #modal .btn::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, transparent 40%, rgba(255,214,140,0.32) 50%, transparent 60%);
+  transform: translateX(-140%); transition: transform 0.7s ease;
+}
+#v-join .btn:hover::before, #v-create .btn:hover::before, #v-hostlobby .btn:hover::before, #v-plobby .btn:hover::before, #modal .btn:hover::before { transform: translateX(140%); }
 
 /* ---------- ฟอร์ม ---------- */
 .field { margin-bottom: 14px; }
@@ -113,12 +145,19 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
   font-size: clamp(3rem, 7vw, 4.6rem); text-align: center; color: var(--gold); letter-spacing: 10px;
   text-shadow: 0 0 30px rgba(245,197,24,0.5); margin: 4px 0 10px; user-select: all;
 }
-#qr-box { display: flex; justify-content: center; padding: 12px; background: #fff; border-radius: 14px; width: fit-content; margin: 0 auto 10px; box-shadow: 0 10px 26px rgba(0,0,0,0.5); }
+#qr-box { display: flex; justify-content: center; padding: 12px; background: #fff; border-radius: 14px; width: fit-content; margin: 0 auto 10px;
+  animation: qrGlow 4s ease-in-out infinite; }
+@keyframes qrGlow { 0%,100% { box-shadow: 0 10px 26px rgba(0,0,0,0.5), 0 0 0 rgba(245,197,24,0) } 50% { box-shadow: 0 10px 26px rgba(0,0,0,0.5), 0 0 22px rgba(245,197,24,0.55) } }
+.hr-qr { animation: qrGlowSm 4s ease-in-out infinite; border-radius: 6px; }
+@keyframes qrGlowSm { 0%,100% { box-shadow: 0 0 0 rgba(245,197,24,0) } 50% { box-shadow: 0 0 14px rgba(245,197,24,0.6) } }
+.hl-count.pop, .astat.pop { animation: countPop 0.4s cubic-bezier(0.3,1.7,0.4,1); }
+@keyframes countPop { 0% { transform: scale(1) } 40% { transform: scale(1.28) } 100% { transform: scale(1) } }
 .join-url { text-align: center; font-size: 0.85rem; opacity: 0.8; word-break: break-all; margin-bottom: 10px; user-select: all; }
 .hl-count { text-align: center; font-size: 1.25rem; margin: 8px 0; }
 .hl-count span { color: var(--gold); font-size: 1.6rem; font-weight: 600; }
 .lobby-players { display: flex; flex-wrap: wrap; gap: 10px; min-height: 120px; }
 .lobby-p { width: 76px; text-align: center; animation: popIn 0.4s cubic-bezier(0.2, 1.6, 0.4, 1); }
+.lobby-p.still { animation: none; }
 @keyframes popIn { from { transform: scale(0); opacity: 0 } to { transform: scale(1); opacity: 1 } }
 .lobby-p svg { width: 54px; height: auto; filter: drop-shadow(0 6px 8px rgba(0,0,0,0.45)); }
 .lobby-p .nm { font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -314,8 +353,10 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
 @keyframes hueSpin { to { filter: hue-rotate(360deg) } }
 
 /* ---------- modal / toast ---------- */
-#modal-wrap { position: fixed; inset: 0; z-index: 90; background: rgba(4,6,18,0.7); display: flex; align-items: center; justify-content: center; padding: 16px; }
-#modal { max-width: 420px; width: 100%; max-height: 86dvh; overflow-y: auto; }
+#modal-wrap { position: fixed; inset: 0; z-index: 90; background: rgba(4,6,18,0.7); display: flex; align-items: center; justify-content: center; padding: 16px; animation: modalBgIn 0.25s ease; }
+#modal { max-width: 420px; width: 100%; max-height: 86dvh; overflow-y: auto; animation: modalIn 0.25s cubic-bezier(0.2,1.3,0.4,1); }
+@keyframes modalBgIn { from { opacity: 0 } to { opacity: 1 } }
+@keyframes modalIn { from { opacity: 0; transform: scale(0.92) translateY(8px) } to { opacity: 1; transform: none } }
 #toast { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 120; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
 .toast-msg { background: rgba(12,16,38,0.95); border: 1px solid var(--gold-dim); color: var(--cream); border-radius: 999px; padding: 8px 20px; font-size: 0.9rem; animation: viewIn 0.3s; box-shadow: 0 10px 26px rgba(0,0,0,0.5); }
 
