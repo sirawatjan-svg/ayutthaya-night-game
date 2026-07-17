@@ -82,10 +82,24 @@ const Sound = (() => {
     }, mode === 'night' ? 900 : 400);
   }
 
+  // เพลงจริงจาก Higgsfield (sonilo_music) — ถ้าไฟล์โหลดไม่ได้ ใช้เพลงสังเคราะห์แทนอัตโนมัติ
+  let musEl = null;
+  const MUSIC_FILES = { night: 'assets/music-night.m4a', day: 'assets/music-day.m4a' };
+  function stopAllMusic() { stopMusic(); if (musEl) { try { musEl.pause(); } catch (e) {} musEl = null; } }
+  function playMusic(mode) {
+    const src = MUSIC_FILES[mode];
+    if (!src) { startMusic(mode); return; }
+    const el = new Audio(src);
+    el.loop = true;
+    el.volume = mode === 'night' ? 0.25 : 0.2; // เบาๆ อยู่เบื้องหลัง ไม่กวนสมาธิ
+    el.onerror = () => { if (musMode === mode && !musMuted) startMusic(mode); };
+    el.play().then(() => { musEl = el; }).catch(() => { if (musMode === mode && !musMuted) startMusic(mode); });
+  }
+
   return {
     unlock() { try { ac(); } catch (e) {} },
-    music(mode) { musMode = mode; stopMusic(); if (mode && !musMuted) startMusic(mode); },
-    toggleMute() { musMuted = !musMuted; stopMusic(); if (!musMuted && musMode) startMusic(musMode); return musMuted; },
+    music(mode) { musMode = mode; stopAllMusic(); if (mode && !musMuted) playMusic(mode); },
+    toggleMute() { musMuted = !musMuted; stopAllMusic(); if (!musMuted && musMode) playMusic(musMode); return musMuted; },
     gong() { tone(160, 'sine', 2.2, 0.3); tone(240, 'sine', 1.8, 0.12, 0.02); tone(90, 'sine', 2.6, 0.18, 0.01); },
     drum() { tone(120, 'sine', 0.3, 0.5, 0, 45); noise(0.12, 0.2, 0, 300, 0.8); },
     chime() { [880, 1174, 1568].forEach((f, i) => tone(f, 'sine', 0.9, 0.12, i * 0.12)); },
