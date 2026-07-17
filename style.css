@@ -427,6 +427,78 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
 .pb-card:hover { transform: translateY(-3px); }
 .lobby-p { cursor: pointer; }
 
+/* ---------- ปุ่มหน้าแรก: ไม้แกะสลัก+ทอง (เข้ากับ Key Visual แบบ AAA) ---------- */
+#v-home.has-hero .home-btns .btn {
+  position: relative; overflow: hidden; font-family: 'Srisakdi', 'Mitr', cursive; font-weight: 400;
+  letter-spacing: 1px; border-radius: 11px; border-width: 2px;
+  backdrop-filter: blur(2px);
+}
+#v-home.has-hero .home-btns .btn-gold {
+  background: linear-gradient(180deg, rgba(58,42,10,0.55), rgba(30,20,4,0.75)), linear-gradient(180deg, #6b4a1a, #3a2a0a);
+  color: var(--gold); border-color: #d9a616; text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+  box-shadow: 0 6px 0 #241a06, 0 14px 30px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,215,120,0.25), inset 0 0 18px rgba(0,0,0,0.4);
+}
+#v-home.has-hero .home-btns .btn-blue {
+  background: linear-gradient(180deg, rgba(30,20,10,0.55), rgba(18,12,6,0.75)), linear-gradient(180deg, #5a3d22, #2e1f10);
+  color: var(--cream); border-color: #b87a3a;
+  box-shadow: 0 6px 0 #1c1206, 0 14px 30px rgba(0,0,0,0.55), inset 0 1px 0 rgba(220,170,110,0.2), inset 0 0 18px rgba(0,0,0,0.4);
+}
+/* แสงเทียนไหลผ่านตอน hover แทนการเปลี่ยนสีทื่อๆ */
+#v-home.has-hero .home-btns .btn::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, transparent 40%, rgba(255,214,140,0.35) 50%, transparent 60%);
+  transform: translateX(-140%); transition: transform 0.7s ease;
+}
+#v-home.has-hero .home-btns .btn:hover::before { transform: translateX(140%); }
+#v-home.has-hero .home-btns .btn:hover { transform: translateY(-2px); filter: brightness(1.08); }
+
+/* ---------- เอฟเฟกต์คร่อมภาพ: แสงดาบ/จันทร์/นก (ตำแหน่งประมาณ ปรับตามภาพจริง) ---------- */
+.h-swordglint {
+  position: absolute; left: 38%; top: 20%; width: 24%; height: 30%; pointer-events: none;
+  background: linear-gradient(100deg, transparent 42%, rgba(255,240,190,0.85) 49%, transparent 56%);
+  background-size: 260% 260%; background-position: -60% -60%;
+  mix-blend-mode: screen; opacity: 0;
+  animation: swordGlint 20s ease-in-out infinite;
+}
+@keyframes swordGlint {
+  0%, 92%, 100% { opacity: 0; background-position: -60% -60%; }
+  93% { opacity: 0.9; }
+  97% { opacity: 0; background-position: 160% 160%; }
+}
+.h-moonglow {
+  position: absolute; left: 24.5%; top: 8%; width: 7%; aspect-ratio: 1; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(255,250,230,0.55), transparent 70%);
+  animation: moonPulse 6s ease-in-out infinite;
+}
+@keyframes moonPulse { 0%,100% { opacity: 0.35; transform: scale(1) } 50% { opacity: 0.75; transform: scale(1.15) } }
+.h-bird { position: absolute; left: 20%; top: 14%; width: 22px; height: 12px; pointer-events: none; opacity: 0; animation: birdCross 45s linear infinite; }
+.h-bird svg { width: 100%; height: 100%; fill: rgba(10,10,20,0.8); }
+@keyframes birdCross {
+  0%, 88% { opacity: 0; transform: translate(0, 0); }
+  89% { opacity: 0.8; }
+  93% { transform: translate(11vw, -1.5vh); }
+  96% { opacity: 0.8; }
+  97%, 100% { opacity: 0; transform: translate(16vw, -2vh); }
+}
+
+/* ---------- ยามเฝ้ากำแพง + ข้อความลอย (ไม่มีเสียง) ---------- */
+.h-guard { position: absolute; left: 4%; bottom: 22%; width: 26px; height: 34px; pointer-events: none; opacity: 0; animation: guardWalk 18s ease-in-out infinite; }
+.h-guard svg { width: 100%; height: 100%; fill: rgba(4,4,10,0.88); }
+@keyframes guardWalk {
+  0%, 82% { opacity: 0; transform: translateX(0); }
+  84% { opacity: 0.85; }
+  93% { transform: translateX(9vw); }
+  96% { opacity: 0.85; }
+  98%, 100% { opacity: 0; transform: translateX(9vw); }
+}
+.h-watchtext {
+  position: absolute; left: 50%; bottom: 15%; transform: translateX(-50%); pointer-events: none;
+  font-family: 'Srisakdi', cursive; color: var(--cream); font-size: 1rem; text-align: center; text-shadow: 0 2px 10px rgba(0,0,0,0.9);
+  opacity: 0; width: 90%; max-width: 420px;
+  animation: watchTextFade 18s ease-in-out infinite;
+}
+@keyframes watchTextFade { 0%,80% { opacity: 0 } 85%,93% { opacity: 0.9 } 100% { opacity: 0 } }
+
 /* ---------- ภาพปกหน้าแรก (Key Visual จาก ChatGPT — เต็มตัว ไม่จางไม่ซ้อน) ---------- */
 #v-home { position: relative; overflow: hidden; }
 #home-hero { position: absolute; inset: 0; z-index: -1; opacity: 0; }
