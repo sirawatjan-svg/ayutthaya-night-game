@@ -133,6 +133,17 @@ const Sound = (() => {
         o.start(); lfo.start(); slow.start(); ambNodes.push(o, lfo, slow);
       });
     },
+    // ---------- เสียงบรรยากาศเบาๆ สุ่มเล่นครั้งเดียว (สังเคราะห์ล้วน ไม่มีไฟล์ ไม่เสียเครดิต) ----------
+    ambientCue() {
+      const cues = [
+        () => { tone(520, 'sine', 3.2, 0.05, 0, 500); tone(1040, 'sine', 2.8, 0.02, 0.05, 1000); }, // ระฆังวัดไกลๆ
+        () => { for (let i = 0; i < 3; i++) tone(1800 + Math.random() * 900, 'sine', 0.12, 0.035, i * 0.16 + Math.random() * 0.1); }, // นกร้องกลางคืน
+        () => { noise(0.35, 0.05, 0, 350, 0.7); tone(140, 'sine', 0.3, 0.03, 0.03, 90); }, // ไม้พายกระทบน้ำ
+        () => { noise(2.2, 0.045, 0, 500, 0.5); }, // ลมพัดผ่านกำแพง
+        () => { tone(300, 'sawtooth', 0.18, 0.035, 0, 180); tone(260, 'sawtooth', 0.22, 0.03, 0.28, 150); }, // หมาเห่าไกลๆ
+      ];
+      cues[Math.floor(Math.random() * cues.length)]();
+    },
   };
 })();
 
@@ -339,4 +350,92 @@ const FX = (() => {
   async function play(type, opts) { if (FXS[type]) await FXS[type](opts || {}); }
   async function queue(list) { for (const it of list) await play(it.type, it); }
   return { play, queue };
+})();
+
+// ============================================================
+// LivingEnv — เหตุการณ์สุ่มเล็กๆ ระหว่างเล่นเกม (นก/ค้างคาว/ดาวตก/เมฆบังจันทร์/โคมลอย)
+// สุ่มทีละ 1 อย่างเท่านั้น ไม่ให้ซ้อนกัน — เกิดขึ้นแล้วเงียบ ค่อยสุ่มใหม่
+// ============================================================
+const LivingEnv = (() => {
+  let timer = null, layer = null;
+  const EVENTS = [
+    { name: 'bird', dur: 6000, sound: false, svg: '<svg viewBox="0 0 24 12" style="width:26px;height:13px"><path d="M0,6 Q6,0 12,6 Q18,0 24,6 Q18,3 12,6 Q6,3 0,6" fill="rgba(10,10,20,0.75)"/></svg>' },
+    { name: 'bat', dur: 5000, sound: false, svg: '<svg viewBox="0 0 28 14" style="width:24px;height:12px"><path d="M14,7 L9,2 L11,7 L2,4 L9,8 L2,11 L11,8.5 L9,13 L14,8.5 L19,13 L17,8 L26,11 L19,8 L26,4 L17,7 L19,2 Z" fill="rgba(6,6,14,0.8)"/></svg>' },
+  ];
+  const posBand = () => (4 + Math.random() * 24) + '%'; // แถบฟ้าตอนบน ประมาณ ไม่ผูกกับพิกัดจริงของฉากวาด
+  function ensureLayer() { if (!layer) layer = document.getElementById('living-env-layer'); return layer; }
+
+  function spawnFlyby(ev) {
+    const el = document.createElement('div');
+    const fromLeft = Math.random() < 0.5;
+    el.style.cssText = `position:absolute;top:${posBand()};${fromLeft ? 'left:-5%' : 'right:-5%'};opacity:0;transition:none;pointer-events:none;`;
+    el.innerHTML = ev.svg;
+    ensureLayer().appendChild(el);
+    const dx = (fromLeft ? 1 : -1) * (30 + Math.random() * 25);
+    requestAnimationFrame(() => {
+      el.style.transition = `transform ${ev.dur}ms linear, opacity ${Math.round(ev.dur * 0.18)}ms ease`;
+      el.style.opacity = '0.85';
+      el.style.transform = `translate(${dx}vw, ${(-4 + Math.random() * 8)}vh)`;
+      setTimeout(() => { el.style.opacity = '0'; }, ev.dur - Math.round(ev.dur * 0.18));
+    });
+    setTimeout(() => el.remove(), ev.dur + 300);
+  }
+  function spawnShootingStar() {
+    const el = document.createElement('div');
+    const top = 4 + Math.random() * 20, left = 10 + Math.random() * 50;
+    el.style.cssText = `position:absolute;top:${top}%;left:${left}%;width:2px;height:2px;border-radius:50%;
+      background:#fff;box-shadow:0 0 6px 1px rgba(255,255,255,0.9);opacity:0;pointer-events:none;`;
+    ensureLayer().appendChild(el);
+    requestAnimationFrame(() => {
+      el.style.transition = 'transform 900ms ease-in, opacity 900ms ease-in';
+      el.style.opacity = '1';
+      el.style.transform = 'translate(14vw, 9vh)';
+      el.style.boxShadow = '-40px -26px 12px 1px rgba(255,255,255,0.35), 0 0 6px 1px rgba(255,255,255,0.9)';
+    });
+    setTimeout(() => el.remove(), 1000);
+  }
+  function spawnCloudMoon() {
+    const el = document.createElement('div');
+    el.style.cssText = `position:absolute;top:6%;left:-15%;width:16vw;height:6vh;border-radius:50%;
+      background:rgba(220,224,240,0.4);filter:blur(6px);opacity:0;pointer-events:none;`;
+    ensureLayer().appendChild(el);
+    requestAnimationFrame(() => {
+      el.style.transition = 'transform 9000ms linear, opacity 1500ms ease';
+      el.style.opacity = '0.5';
+      el.style.transform = 'translateX(55vw)';
+      setTimeout(() => { el.style.opacity = '0'; }, 7200);
+    });
+    setTimeout(() => el.remove(), 9300);
+  }
+  function spawnLantern() {
+    const el = document.createElement('div');
+    el.style.cssText = `position:absolute;bottom:-4%;left:${(10 + Math.random() * 80)}%;width:9px;height:13px;border-radius:45% 45% 35% 35%;
+      background:radial-gradient(#ffd98a,#e8862a);box-shadow:0 0 12px 3px rgba(255,170,60,0.5);opacity:0;pointer-events:none;`;
+    ensureLayer().appendChild(el);
+    requestAnimationFrame(() => {
+      el.style.transition = 'transform 8000ms linear, opacity 1200ms ease';
+      el.style.opacity = '0.85';
+      el.style.transform = `translate(${(-4 + Math.random() * 8)}vw, -70vh) scale(0.6)`;
+      setTimeout(() => { el.style.opacity = '0'; }, 6500);
+    });
+    setTimeout(() => el.remove(), 8300);
+  }
+
+  function fireOne() {
+    const roll = Math.random();
+    if (roll < 0.32) spawnFlyby(EVENTS[0]);
+    else if (roll < 0.5) spawnFlyby(EVENTS[1]);
+    else if (roll < 0.68) spawnShootingStar();
+    else if (roll < 0.86) spawnCloudMoon();
+    else spawnLantern();
+    if (Math.random() < 0.4) Sound.ambientCue(); // บางครั้งมีเสียงคู่กัน ไม่ทุกครั้ง กันรำคาญ
+  }
+  function scheduleNext() {
+    const delay = 20000 + Math.random() * 20000; // 20-40 วิ ต่อ 1 เหตุการณ์ ไม่ซ้อนกัน
+    timer = setTimeout(() => { fireOne(); scheduleNext(); }, delay);
+  }
+  return {
+    start() { if (timer) return; scheduleNext(); },
+    stop() { if (timer) { clearTimeout(timer); timer = null; } },
+  };
 })();
