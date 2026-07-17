@@ -43,8 +43,11 @@ const App = (() => {
     box.dataset.on = '1';
     box.innerHTML = ROLE_ORDER.map((rid, i) => {
       const r = ROLES[rid];
-      return `<div class="exp-card ${i === 0 ? 'on' : ''}" style="--tint:${r.color}">
-        <span class="medal">${Art.roleMedallion(rid, 96)}</span>
+      const head = r.portrait
+        ? `<img class="portrait-img" src="${r.portrait}" alt=""><span class="portrait-badge">${Art.roleMedallion(rid, 40)}</span>`
+        : `<span class="medal">${Art.roleMedallion(rid, 96)}</span>`;
+      return `<div class="exp-card ${i === 0 ? 'on' : ''} ${r.portrait ? 'has-portrait' : ''}" style="--tint:${r.color}">
+        ${head}
         <h3 style="color:${r.color}">${r.name}</h3>
         <div class="cn">ป้ายสี: ${r.colorName} • ศักดินา ${r.sakdina ? r.sakdina.toLocaleString() + ' ไร่' : 'ไม่มี'}</div>
         <p>${r.desc}</p>
@@ -84,6 +87,7 @@ const App = (() => {
     Net.init();
     scene('home');
     document.body.addEventListener('pointerdown', () => Sound.unlock(), { once: true });
+    LivingEnv.start(); // เหตุการณ์สุ่มเบาๆ พื้นหลัง — วิ่งตลอด ไม่โชว์ผลถ้าโดนบังด้วยภาพปก/พาเนล
 
     if (Net.isLocal) $('mode-note').textContent = '🔧 โหมดทดสอบในเครื่อง (ยังไม่ตั้งค่า Firebase) — เปิดหลายแท็บบนเครื่องนี้เพื่อลองเล่น';
 
