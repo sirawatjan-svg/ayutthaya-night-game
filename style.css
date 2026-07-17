@@ -427,7 +427,28 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
 .pb-card:hover { transform: translateY(-3px); }
 .lobby-p { cursor: pointer; }
 
-/* ---------- ภาพปกหน้าแรก (Higgsfield) ---------- */
-#v-home { position: relative; }
-#home-hero { position: absolute; inset: 0; z-index: -1; background: url('assets/hero.webp') center/cover no-repeat; opacity: 0.55; }
-#home-hero::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, transparent 30%, rgba(8,10,30,0.85) 100%); }
+/* ---------- ภาพปกหน้าแรก (Key Visual จาก ChatGPT — เต็มตัว ไม่จางไม่ซ้อน) ---------- */
+#v-home { position: relative; overflow: hidden; }
+#home-hero { position: absolute; inset: 0; z-index: -1; opacity: 0; }
+#v-home.has-hero #home-hero {
+  opacity: 1;
+  background: url('assets/hero2.jpg') center/cover no-repeat;
+  animation: kenburns 26s ease-in-out infinite alternate;
+}
+@keyframes kenburns { from { transform: scale(1) } to { transform: scale(1.08) } }
+#v-home.has-hero #home-hero::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 55%, rgba(6,8,26,0.9) 92%);
+}
+/* ภาพมีโลโก้ชื่อเกมในตัวแล้ว — ซ่อนชื่อ HTML กันซ้ำซ้อน แล้วดันปุ่มลงล่าง */
+#v-home.has-hero .game-title, #v-home.has-hero .title-orn, #v-home.has-hero .tagline { display: none; }
+#v-home.has-hero .home-wrap { margin-top: auto; padding-bottom: 7dvh; }
+/* โคมลอยลอยขึ้น ให้ภาพนิ่งดูมีชีวิต */
+.h-lantern { position: absolute; bottom: -30px; width: 10px; height: 15px; border-radius: 45% 45% 35% 35%;
+  background: radial-gradient(#ffd98a, #e8862a); box-shadow: 0 0 14px 4px rgba(255,170,60,0.5);
+  animation: lanternUp linear infinite; opacity: 0; }
+@keyframes lanternUp {
+  0% { opacity: 0; transform: translateY(0) translateX(0) scale(1) }
+  8% { opacity: 0.9 }
+  100% { opacity: 0; transform: translateY(-105dvh) translateX(6vw) scale(0.55) }
+}
