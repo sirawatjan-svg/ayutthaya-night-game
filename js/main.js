@@ -100,6 +100,21 @@ const App = (() => {
         l.style.animationDelay = (Math.random() * 12) + 's';
         hh.appendChild(l);
       }
+      // แสงดาบบนตราสัญลักษณ์ + ดวงจันทร์เปล่งประกาย (ตำแหน่งประมาณตามภาพ)
+      const glint = document.createElement('div'); glint.className = 'h-swordglint'; hh.appendChild(glint);
+      const moon = document.createElement('div'); moon.className = 'h-moonglow'; hh.appendChild(moon);
+      // นกบินผ่านดวงจันทร์เป็นครั้งคราว
+      const bird = document.createElement('div'); bird.className = 'h-bird';
+      bird.innerHTML = '<svg viewBox="0 0 24 12"><path d="M0,6 Q6,0 12,6 Q18,0 24,6 Q18,3 12,6 Q6,3 0,6"/></svg>';
+      hh.appendChild(bird);
+      // ยามเฝ้ากำแพง + คำพูดลอย (ไม่มีเสียง — แค่บรรยากาศ)
+      const guard = document.createElement('div'); guard.className = 'h-guard';
+      guard.innerHTML = '<svg viewBox="0 0 20 30"><circle cx="10" cy="6" r="5"/><path d="M2,30 Q10,10 18,30 Z"/><rect x="8" y="0" width="6" height="10"/></svg>';
+      hh.appendChild(guard);
+      const watchLines = ['ยามสามแล้ว... พระนครยังไม่หลับใหล', 'ค่ำคืนนี้... อย่าไว้ใจผู้ใดง่ายนัก', 'ประตูเมืองปิดสนิท... ทุกอย่างสงบดี'];
+      const wt = document.createElement('div'); wt.className = 'h-watchtext';
+      wt.textContent = watchLines[Math.floor(Math.random() * watchLines.length)];
+      hh.appendChild(wt);
     };
     hero.src = 'assets/hero2.jpg';
 
