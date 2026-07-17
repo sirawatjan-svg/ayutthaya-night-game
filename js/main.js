@@ -87,6 +87,22 @@ const App = (() => {
 
     if (Net.isLocal) $('mode-note').textContent = '🔧 โหมดทดสอบในเครื่อง (ยังไม่ตั้งค่า Firebase) — เปิดหลายแท็บบนเครื่องนี้เพื่อลองเล่น';
 
+    // ภาพปก Key Visual: โหลดสำเร็จค่อยสลับหน้าแรกเป็นโหมดภาพเต็ม (โหลดพลาด = หน้าเดิม)
+    const hero = new Image();
+    hero.onload = () => {
+      $('v-home').classList.add('has-hero');
+      const hh = $('home-hero');
+      for (let i = 0; i < 6; i++) {
+        const l = document.createElement('span');
+        l.className = 'h-lantern';
+        l.style.left = (8 + Math.random() * 84) + '%';
+        l.style.animationDuration = (11 + Math.random() * 9) + 's';
+        l.style.animationDelay = (Math.random() * 12) + 's';
+        hh.appendChild(l);
+      }
+    };
+    hero.src = 'assets/hero2.jpg';
+
     document.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => show('v-home'));
     $('btn-host').onclick = () => { show('v-create'); chipRow($('day-mins'), dayMin, v => dayMin = v); chipRow($('night-mins'), nightMin, v => nightMin = v); };
     $('btn-join').onclick = () => { show('v-join'); renderCostumes(); };
