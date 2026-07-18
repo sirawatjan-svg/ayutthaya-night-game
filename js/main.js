@@ -4,7 +4,7 @@
 
 const App = (() => {
   const $ = (id) => document.getElementById(id);
-  let curScene = '', expTimer = null;
+  let curScene = '', expTimer = null, activeLayer = 'a';
 
   // ---------------- สลับหน้า ----------------
   function show(id) {
@@ -13,13 +13,21 @@ const App = (() => {
     $('chat-dock').classList.toggle('hidden', !isPlayerGame);
   }
 
-  // ---------------- ฉากหลังตามเฟส ----------------
+  // ---------------- ฉากหลังตามเฟส (ครอสเฟด 2 วิ + ซูมกล้องเบาๆ ตามช่วงเวลา) ----------------
   const SCENE_OF = { lobby: 'dusk', reveal: 'night', night: 'night', nightfx: 'night', day: 'day', dawnfx: 'dawn', vote: 'dusk', duskfx: 'dusk', end: 'dawn', home: 'dusk' };
+  const SCENE_ZOOM = { night: 'zoom-in', dawn: 'zoom-out' }; // คืน=เข้าใกล้ 2% (ลึกลับ) / รุ่งเช้า=ถอยออก 2% (คลี่คลาย)
   function scene(phase) {
     const m = SCENE_OF[phase] || 'dusk';
     if (m === curScene) return;
     curScene = m;
-    $('bg-scene').innerHTML = Art.scene(m);
+    const showEl = $('bg-scene-' + (activeLayer === 'a' ? 'b' : 'a'));
+    const hideEl = $('bg-scene-' + activeLayer);
+    activeLayer = activeLayer === 'a' ? 'b' : 'a';
+    showEl.innerHTML = Art.scene(m);
+    showEl.className = 'scene-layer ' + (SCENE_ZOOM[m] || '');
+    void showEl.offsetHeight; // บังคับ reflow ก่อน toggle class เพื่อให้ transition ทำงานแน่นอน
+    showEl.classList.add('on');
+    hideEl.classList.remove('on');
   }
 
   // ---------------- modal / toast ----------------
