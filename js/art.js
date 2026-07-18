@@ -75,6 +75,20 @@ const Art = (() => {
         fireflies += `<circle class="firefly" cx="${100 + i * 110}" cy="${680 + (i % 4) * 40}" r="2.4" fill="#ffe89a" style="animation-delay:${(i * 0.6).toFixed(1)}s;animation-duration:${(4 + (i % 5)).toFixed(0)}s"/>`;
       }
     }
+    // สัญลักษณ์เฉพาะกลางวัน — ธงไหว/ใบไม้ไหว/ฝุ่นลอย ให้เมืองยังมีชีวิตตอนสนทนา (นิ่งที่สุดของเกม)
+    let dayAmbient = '';
+    if (mode === 'day') {
+      const flags = [280, 560, 950, 1350].map((x, i) =>
+        `<g class="daflag" style="animation-delay:${(i * 0.4).toFixed(1)}s"><rect x="${x}" y="806" width="3" height="52" fill="#6a4a2a"/>
+          <path d="M${x + 3},808 L${x + 32},816 L${x + 3},826 Z" fill="#a03028"/></g>`).join('');
+      const leaves = Array.from({ length: 7 }, (_, i) =>
+        `<ellipse class="daleaf" cx="${180 + i * 210}" cy="${120 + (i % 3) * 60}" rx="5" ry="3" fill="#6a8c4a" opacity="0.55"
+          style="animation-delay:${(i * 1.3).toFixed(1)}s;animation-duration:${(9 + (i % 4) * 2).toFixed(0)}s"/>`).join('');
+      const dust = Array.from({ length: 16 }, (_, i) =>
+        `<circle class="dadust" cx="${(i * 97) % 1600}" cy="${560 + (i * 53) % 200}" r="1.3" fill="#fff6d8" opacity="0.4"
+          style="animation-delay:${(i * 0.5).toFixed(1)}s;animation-duration:${(6 + (i % 5)).toFixed(0)}s"/>`).join('');
+      dayAmbient = flags + leaves + dust;
+    }
     const moonMask = mode === 'night' ? `<circle cx="1244" cy="${p.orbY - 16}" r="46" fill="${p.sky[0]}"/>` : '';
     return `<svg class="scene-svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
       <defs>
@@ -97,7 +111,7 @@ const Art = (() => {
         <ellipse cx="400" cy="760" rx="120" ry="5"/><ellipse cx="900" cy="800" rx="160" ry="6"/><ellipse cx="1300" cy="770" rx="100" ry="4"/>
       </g>
       <g class="boat-drift" fill="${p.fg}">${boat(500, 742, 1.4)}${boat(1150, 760, 1.1, true)}</g>
-      ${fireflies}
+      ${fireflies}${dayAmbient}
       <g fill="${p.fg}"><rect x="0" y="852" width="1600" height="48"/>
         <path d="M0,860 Q200,838 420,856 Q700,836 980,856 Q1240,838 1600,858 L1600,900 L0,900 Z"/>
         <rect x="120" y="800" width="8" height="60"/><rect x="180" y="812" width="8" height="48"/>
