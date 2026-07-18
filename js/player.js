@@ -275,10 +275,10 @@ const Player = (() => {
     const o = opts || {};
     const vc = o.showVoteCounts ? computeVoteCounts() : null;
     const list = alivePids().filter(p => (o.includeSelf || p !== pid) && !(o.exclude || []).includes(p) && !((o.excludeRoles || []).includes(roles[p])));
-    return list.map(p => {
+    return list.map((p, i) => {
       const bc = badgeColor(myRole, roles[p]);
       const cnt = vc ? (vc[p] || 0) : 0;
-      return `<div class="tgt selectable ${sel.has(p) ? 'sel' : ''} ${p === pid ? 'me' : ''}" data-t="${p}" style="--bcol:${bc}">
+      return `<div class="tgt selectable ${sel.has(p) ? 'sel' : ''} ${p === pid ? 'me' : ''}" data-t="${p}" style="--bcol:${bc};--bi:${i}">
         <span class="badge"></span>${Art.avatar(players[p].avatar || 0)}<div class="nm">${esc(players[p].name)}</div>
         ${cnt ? `<div class="votes">🗳️${cnt}</div>` : ''}</div>`;
     }).join('');
@@ -456,9 +456,9 @@ const Player = (() => {
     const el = $('p-board');
     if (!meta || meta.phase === 'end') { el.innerHTML = ''; return; }
     if (['night', 'vote'].includes(meta.phase) && alive[pid]) { el.innerHTML = ''; return; } // ช่วงเลือกเป้าหมาย กระดานอยู่ใน action panel แล้ว
-    el.innerHTML = Object.entries(players).map(([p, pl]) => {
+    el.innerHTML = Object.entries(players).map(([p, pl], i) => {
       const bc = badgeColor(myRole, roles[p]);
-      return `<div class="tgt ${alive[p] ? '' : 'dead'} ${p === pid ? 'me' : ''}" style="--bcol:${bc}">
+      return `<div class="tgt ${alive[p] ? '' : 'dead'} ${p === pid ? 'me' : ''}" style="--bcol:${bc};--bi:${i}">
         <span class="badge"></span>${Art.avatar(pl.avatar || 0)}<div class="nm">${esc(pl.name)}</div></div>`;
     }).join('');
   }
