@@ -6,7 +6,7 @@ const Player = (() => {
   let code = null, R = null, pid = null, me = null;
   let meta = null, players = {}, roles = {}, alive = {}, sak = {};
   let goalP = 450, results = {}, votesAll = {};
-  let myRole = null, revealShown = false, lastPhaseKey = '';
+  let myRole = null, revealShown = false, lastPhaseKey = '', prevMetaPhase = null;
   let inboxKeys = new Set(), inboxMsgs = [], firstInbox = true;
   let chatCh = 'all', chatUnsub = null, chatOpen = false, unread = 0, chatCount = {};
   let unsubs = [], tickTimer = null, submitted = {};
@@ -48,10 +48,16 @@ const Player = (() => {
     unsubs.push(
       Net.on(R + '/meta', v => {
         if (!v) { App.toast('ครูปิดห้องแล้ว'); setTimeout(() => location.href = location.pathname, 1500); return; }
+        // เข้า "reveal" ใหม่ทุกครั้ง (เกมแรกหรือเริ่มใหม่หลังจบ) = รีเซ็ตธงที่บล็อกไม่ให้ popup/หน้าจบเกมโชว์ซ้ำ
+        if (v.phase === 'reveal' && prevMetaPhase !== 'reveal') {
+          revealShown = false; endShown = false;
+          inboxKeys = new Set(); inboxMsgs = []; firstInbox = true;
+        }
+        prevMetaPhase = v.phase;
         meta = v; render();
       }),
       Net.on(R + '/players', v => { players = v || {}; me = players[pid] || me; render(); }),
-      Net.on(R + '/roles/' + pid, v => { if (v && v !== myRole) { myRole = v; bindChat(); render(); } }),
+      Net.on(R + '/roles/' + pid, v => { if (v) { myRole = v; bindChat(); render(); } }),
       Net.on(R + '/roles', v => { roles = v || {}; }),
       Net.on(R + '/alive', v => { alive = v || {}; render(); }),
       Net.on(R + '/sak/' + pid, v => { sak[pid] = v; renderSak(); }),
@@ -131,7 +137,7 @@ const Player = (() => {
       ${teammatesHtml()}
     </div>`;
   }
-  let peekOv = null;
+  let peekOv = null, peekShownAt = 0, peekHideTimer = null;
   function renderRoleStrip() {
     const el = $('p-rolestrip');
     if (!myRole) { el.innerHTML = ''; return; }
@@ -140,12 +146,20 @@ const Player = (() => {
     const show = (e) => {
       e.preventDefault();
       if (peekOv) return;
+      clearTimeout(peekHideTimer);
       peekOv = document.createElement('div');
       peekOv.className = 'peek-ov';
       peekOv.innerHTML = peekCardHtml();
       document.body.appendChild(peekOv);
+      peekShownAt = Date.now();
     };
-    const hide = () => { if (peekOv) { peekOv.remove(); peekOv = null; } };
+    // กันแตะไวเกินจนการ์ดวูบหายก่อนอ่านทัน — ค้างแสดงอย่างน้อย 650ms เสมอ
+    const hide = () => {
+      if (!peekOv) return;
+      const remove = () => { if (peekOv) { peekOv.remove(); peekOv = null; } };
+      const left = 650 - (Date.now() - peekShownAt);
+      if (left <= 0) remove(); else peekHideTimer = setTimeout(remove, left);
+    };
     el.onpointerdown = show;
     el.onpointerup = hide; el.onpointerleave = hide; el.onpointercancel = hide;
     el.oncontextmenu = (e) => e.preventDefault();
@@ -180,13 +194,21 @@ const Player = (() => {
     const r = ROLES[myRole];
     if (!r) return;
     if (withFlip) {
-      App.modal(`<div class="reveal-wrap"><div class="reveal-card" id="rvcard" style="--tint:${r.color}">
-        <div class="rc-face rc-back"><div class="orn">๑๙๑</div><h2 style="color:var(--gold)">ชะตาของเจ้า</h2><p>แตะการ์ดเพื่อเปิดดูบทบาทลับ<br>อย่าให้ใครเห็นหน้าจอ!</p></div>
-        <div class="rc-face rc-front ${r.portrait ? 'has-portrait' : ''}" style="--tint:${r.color}">
-          ${rcFrontInner(r)}
-        </div></div></div>${teammatesHtml()}<button class="btn btn-gold w100" onclick="App.closeModal()">รับชะตา</button>`);
-      const c = document.getElementById('rvcard');
-      c.onclick = () => { c.classList.add('flip'); Sound.whoosh(); };
+      // สับไพ่ก่อนเผยชะตา — ให้ความรู้สึกจับสลาก ก่อนค่อยเข้าสู่การ์ดจริงที่แตะเพื่อเปิด
+      App.modal(`<div class="shuffle-wrap">
+        <div class="shuffle-card sc1"></div><div class="shuffle-card sc2"></div><div class="shuffle-card sc3"></div>
+        <div class="shuffle-txt">กำลังจับสลากชะตา...</div>
+      </div>`);
+      Sound.whoosh();
+      setTimeout(() => {
+        App.modal(`<div class="reveal-wrap"><div class="reveal-card" id="rvcard" style="--tint:${r.color}">
+          <div class="rc-face rc-back"><div class="orn">๑๙๑</div><h2 style="color:var(--gold)">ชะตาของเจ้า</h2><p>แตะการ์ดเพื่อเปิดดูบทบาทลับ<br>อย่าให้ใครเห็นหน้าจอ!</p></div>
+          <div class="rc-face rc-front ${r.portrait ? 'has-portrait' : ''}" style="--tint:${r.color}">
+            ${rcFrontInner(r)}
+          </div></div></div>${teammatesHtml()}<button class="btn btn-gold w100" onclick="App.closeModal()">รับชะตา</button>`);
+        const c = document.getElementById('rvcard');
+        c.onclick = () => { c.classList.add('flip'); Sound.whoosh(); };
+      }, 1100);
     } else {
       App.modal(roleCardHtml(r) + '<button class="btn btn-ghost w100" onclick="App.closeModal()">ปิด</button>');
     }
@@ -242,13 +264,23 @@ const Player = (() => {
   }
 
   // ---------------- เลือกเป้าหมาย ----------------
+  function computeVoteCounts() {
+    if (!meta || meta.phase !== 'vote') return {};
+    const dv = votesAll[meta.day] || {};
+    const counts = {};
+    for (const v in dv) (Array.isArray(dv[v]) ? dv[v] : []).forEach(t => { counts[t] = (counts[t] || 0) + 1; });
+    return counts;
+  }
   function targetGrid(sel, opts) {
     const o = opts || {};
+    const vc = o.showVoteCounts ? computeVoteCounts() : null;
     const list = alivePids().filter(p => (o.includeSelf || p !== pid) && !(o.exclude || []).includes(p) && !((o.excludeRoles || []).includes(roles[p])));
     return list.map(p => {
       const bc = badgeColor(myRole, roles[p]);
+      const cnt = vc ? (vc[p] || 0) : 0;
       return `<div class="tgt selectable ${sel.has(p) ? 'sel' : ''} ${p === pid ? 'me' : ''}" data-t="${p}" style="--bcol:${bc}">
-        <span class="badge"></span>${Art.avatar(players[p].avatar || 0)}<div class="nm">${esc(players[p].name)}</div></div>`;
+        <span class="badge"></span>${Art.avatar(players[p].avatar || 0)}<div class="nm">${esc(players[p].name)}</div>
+        ${cnt ? `<div class="votes">🗳️${cnt}</div>` : ''}</div>`;
     }).join('');
   }
   function bindPick(container, sel, max, onChange) {
@@ -277,6 +309,7 @@ const Player = (() => {
       if (sk) sk.onclick = () => cfg.submit('-');
     };
     draw();
+    return draw;
   }
   async function submitAct(node, val, doneText) {
     await Net.set(`${R}/act/${meta.night}/${node}/${pid}`, val);
@@ -392,21 +425,25 @@ const Player = (() => {
       `<div class="vl-row"><b class="vl-target">${nm(t)}</b><span class="vl-count">${vs.length}</span><span class="vl-voters">← ${vs.map(nm).join(', ')}</span></div>`).join('');
     return `<div class="vl-wrap"><div class="vl-title">👁 มติสดของทั้งเมือง</div>${rows || '<div class="vl-row">ยังไม่มีใครลงมติ...</div>'}</div>`;
   }
+  let voteRedraw = null;
   function updateVoteLive() {
     const box = document.getElementById('p-votelive');
     if (box) box.innerHTML = voteLiveHtmlP();
+    if (voteRedraw) voteRedraw(); // รีเฟรชตัวเลข 🗳️ ใต้รูปผู้เล่นในกริดเลือกเป้าหมายด้วย (แบบ Among Us)
   }
   function renderVote(el) {
     const q = meta.voteQuota || 1;
+    voteRedraw = null;
     Net.once(`${R}/votes/${meta.day}/${pid}`).then(v => {
       if (v) { el.innerHTML = `<div class="done-note">✔ ลงมติแล้ว รอเพื่อนๆ...</div><div id="p-votelive">${voteLiveHtmlP()}</div>${inboxPanel()}`; return; }
       el.innerHTML = '<div id="p-voteui"></div><div id="p-votelive">' + voteLiveHtmlP() + '</div>';
-      actionUI(el.querySelector('#p-voteui'), {
+      voteRedraw = actionUI(el.querySelector('#p-voteui'), {
         title: `🗳️ ลงมติขับผู้ต้องสงสัย (เลือก ${q} คน)`,
         sub: '⚠️ ทุกคนเห็นหมดว่าใครโหวตใคร — เลือกให้ดี ประวัติศาสตร์จะจารึก',
-        max: q, allowEmpty: false, skippable: false,
+        max: q, allowEmpty: false, skippable: false, showVoteCounts: true,
         submit: async (v) => {
           await Net.set(`${R}/votes/${meta.day}/${pid}`, v);
+          voteRedraw = null;
           el.innerHTML = `<div class="done-note">✔ ลงมติแล้ว รอเพื่อนๆ...</div><div id="p-votelive">${voteLiveHtmlP()}</div>`;
           Sound.chime();
         },
@@ -483,8 +520,13 @@ const Player = (() => {
       $('chat-panel').classList.toggle('hidden', !chatOpen);
       if (chatOpen) { unread = 0; updateUnread(); scrollChat(); }
     };
-    $('chat-send').onclick = sendChat;
+    $('chat-send').onclick = () => sendChat();
     $('chat-input').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
+    // ปุ่มข้อความด่วน — กดแล้วส่งทันที ช่วยให้เด็กคุยอยู่ในเนื้อเรื่องเกมโดยไม่ต้องพิมพ์เอง
+    $('chat-quick').innerHTML = QUICK_CHAT.map((t, i) => `<button class="qc-btn" data-i="${i}">${esc(t)}</button>`).join('');
+    $('chat-quick').querySelectorAll('.qc-btn').forEach(b => {
+      b.onclick = () => sendChat(QUICK_CHAT[+b.dataset.i]);
+    });
   }
   function bindChat() {
     // กันชะโงก: ทุกคนมี 2 แท็บหน้าตาเหมือนกันหมด — "ช่องรวม" + "ช่องลับ" สีเดียวกัน
@@ -522,12 +564,12 @@ const Player = (() => {
     b.classList.toggle('hidden', unread === 0);
     b.textContent = unread;
   }
-  async function sendChat() {
+  async function sendChat(presetText) {
     const inp = $('chat-input');
-    const text = inp.value.trim();
+    const text = presetText || inp.value.trim();
     if (!text) return;
     if (!alive[pid] && meta && meta.phase !== 'lobby' && meta.phase !== 'end' && myRole) { App.toast('วิญญาณส่งเสียงไม่ได้...'); return; }
-    inp.value = '';
+    if (!presetText) inp.value = '';
     await Net.push(`${R}/chat/${chatCh}`, { pid, name: (me && me.name) || '?', text, ts: Net.now() });
   }
 
