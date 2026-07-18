@@ -7,6 +7,7 @@ const Host = (() => {
   let meta = null, players = {}, roles = {}, alive = {}, sak = {}, loot = 0;
   let acts = null, votes = null, thiefTurns = {};
   let goal = 450, lordShield = false; // เป้าโจร (ตามขนาดห้อง) + องครักษ์เจ้าเมือง (ใช้ได้ 1 ครั้ง)
+  let allChats = {}, chatWatchOpen = false;
   let busy = false, tickTimer = null, unsubs = [];
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -109,6 +110,33 @@ const Host = (() => {
     await setPhase('reveal', 1, 1, meta0().night);
     bindGame();
   }
+
+  // ---------------- เริ่มเกมใหม่หลังจบ (คนเดิม ไม่ต้องเข้าลิงก์ใหม่) ----------------
+  async function restart() {
+    const pids = shuffle(Object.keys(players));
+    if (pids.length < MIN_PLAYERS) return;
+    const setup = roleSetup(pids.length);
+    const bag = [];
+    for (const r of ROLE_ORDER) for (let i = 0; i < (setup[r] || 0); i++) bag.push(r);
+    shuffle(bag);
+    const rolesW = {}, aliveW = {}, sakW = {}, turnsW = {};
+    pids.forEach((pid, i) => {
+      rolesW[pid] = bag[i];
+      aliveW[pid] = true;
+      sakW[pid] = ROLES[bag[i]].sakdina;
+      if (bag[i] === 'thief') turnsW[pid] = 0;
+    });
+    goal = thiefGoal(pids.length);
+    lordShield = true;
+    thiefTurns = turnsW; acts = {}; votes = {}; loot = 0;
+    // ล้างข้อมูลเกมก่อนหน้าทั้งหมด (null = ลบ path ทิ้งใน Firebase) ก่อนแจกบทบาทใหม่
+    await Net.update(R, {
+      roles: rolesW, alive: aliveW, sak: sakW, loot: 0, thiefTurns: turnsW, goal, lordShield: true,
+      votes: null, act: null, history: null, results: null, scores: null, winner: null, chat: null, private: null,
+    });
+    $('h-log').innerHTML = '';
+    await setPhase('reveal', 1, 1, meta0().night);
+  }
   function meta0() { return (meta && meta.settings) || { day: 5, night: 3 }; }
 
   async function setPhase(phase, night, day, minutes, extra) {
@@ -137,9 +165,11 @@ const Host = (() => {
       Net.on(R + '/lordShield', v => { lordShield = !!v; }),
       Net.on(R + '/act', v => { acts = v || {}; }),
       Net.on(R + '/votes', v => { votes = v || {}; if (meta && meta.phase === 'vote') renderNarration(); }),
+      Net.on(R + '/chat', v => { allChats = v || {}; renderChatWatch(); }),
     );
     $('btn-skip').onclick = () => advance(true);
     $('btn-music').onclick = () => { const m = Sound.toggleMute(); $('btn-music').textContent = m ? '🔇 ปิดเพลง' : '🔊 เพลง'; };
+    $('btn-chatwatch').onclick = () => { chatWatchOpen = true; renderChatWatch(); };
     // QR + รหัสห้อง โชว์ตลอดเกม — เด็กหลุดสแกนกลับเข้าได้ (พิมพ์ชื่อเดิม)
     const joinUrl = location.origin + location.pathname + '?room=' + code;
     $('hr-code').textContent = code;
@@ -159,6 +189,32 @@ const Host = (() => {
   }
 
   // ---------------- แผงควบคุมครู: แตะชื่อผู้เล่นบนกระดาน ----------------
+  // ---------------- ตรวจแชท: ครูดูข้อความทุกช่องรวมกันเพื่อสอดส่องเนื้อหาไม่เหมาะสม ----------------
+  // หมายเหตุ: เปิดเป็น modal ชั่วคราวเท่านั้น (ไม่ใช่แผงค้างจอ) เพราะจอนี้ฉายให้เด็กทั้งห้องดู
+  // ถ้าเปิดค้างไว้จะเห็นแชทลับของทุกฝ่าย (โจร/ศัตรู ฯลฯ) ทำลายกลไกซ่อนข้อมูลของเกม
+  function nameOfP(pid) { return players[pid] ? players[pid].name : '?'; }
+  function renderChatWatch() {
+    if (!chatWatchOpen) return;
+    const rows = [];
+    for (const ch in allChats) {
+      for (const k in allChats[ch]) {
+        const m = allChats[ch][k];
+        rows.push({ ch, ts: m.ts || 0, name: m.name || nameOfP(m.pid), text: m.text });
+      }
+    }
+    rows.sort((a, b) => b.ts - a.ts);
+    const chLabel = (ch) => ch.startsWith('note-') ? '🔒 สมุดลับ' : ch === 'all' ? '💬 รวม' : '🔒 ' + ch;
+    const html = rows.slice(0, 200).map(r =>
+      `<div class="cw-row"><span class="cw-ch">${chLabel(r.ch)}</span><b>${esc(r.name)}:</b> ${esc(r.text)}</div>`).join('') ||
+      '<p class="p-note">ยังไม่มีข้อความ</p>';
+    App.modal(`<h2 class="panel-title sm">👁 ตรวจแชททุกช่อง (ล่าสุดก่อน)</h2>
+      <p class="p-note" style="color:var(--gold)">⚠️ ปิดหน้าต่างนี้ก่อนหันจอกลับไปฉายให้เด็กดู เพราะเห็นแชทลับทุกฝ่าย</p>
+      <div class="cw-list">${html}</div>
+      <button class="btn btn-ghost w100" id="cw-close">ปิด</button>`);
+    document.getElementById('cw-close').onclick = () => { chatWatchOpen = false; App.closeModal(); };
+    document.getElementById('modal-wrap').onclick = (e) => { if (e.target.id === 'modal-wrap') { chatWatchOpen = false; App.closeModal(); } };
+  }
+
   function playerMenu(pid) {
     const p = players[pid];
     if (!p) return;
@@ -481,8 +537,10 @@ const Host = (() => {
     await FX.play('win', { team, title, text, sad: team === 'enemy' });
     log(`🏁 ${title} — ${text}`);
     $('h-narration').innerHTML = `<b style="color:var(--gold)">${title}</b><br>${text}<br><br>
-      <button class="btn btn-gold w100" id="btn-summary">📜 สรุปเกม & คะแนน (ฉายให้นักเรียนดู)</button>`;
+      <button class="btn btn-gold w100" id="btn-summary">📜 สรุปเกม & คะแนน (ฉายให้นักเรียนดู)</button>
+      <button class="btn btn-blue w100" id="btn-restart">🔄 เริ่มเกมใหม่ (คนเดิม ไม่ต้องเข้าลิงก์ใหม่)</button>`;
     $('btn-summary').onclick = () => showSummary(scores, team, title);
+    $('btn-restart').onclick = () => { if (confirm('เริ่มเกมใหม่กับผู้เล่นชุดเดิม? ข้อมูลเกมที่แล้วจะถูกล้าง')) restart(); };
     renderBoard(true);
     setTimeout(() => showSummary(scores, team, title), 1500);
     return true;
