@@ -18,8 +18,13 @@ body {
 h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'Srisakdi', 'Mitr', cursive; }
 
 /* ---------- ฉากหลัง ---------- */
-#bg-scene { position: fixed; inset: 0; z-index: -2; transition: opacity 1.2s; }
+#bg-scene { position: fixed; inset: 0; z-index: -2; overflow: hidden; }
 #bg-scene .scene-svg { width: 100%; height: 100%; display: block; }
+/* สองชั้นสลับกัน ครอสเฟด 2 วิ ตอนเปลี่ยนฉาก + ซูมกล้องเบาๆ ตามช่วงเวลา (คืน=เข้า 2%, รุ่งเช้า=ออก 2%) */
+.scene-layer { position: absolute; inset: -3%; opacity: 0; transition: opacity 2s ease, transform 9s ease-out; }
+.scene-layer.on { opacity: 1; }
+.scene-layer.zoom-in { transform: scale(1.02); }
+.scene-layer.zoom-out { transform: scale(0.98); }
 #bg-vignette { position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background: radial-gradient(ellipse at 50% 40%, transparent 45%, rgba(6, 8, 26, 0.55) 100%); }
 #living-env-layer { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
@@ -30,6 +35,13 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
 @keyframes drift { from { transform: translateX(-120px) } to { transform: translateX(220px) } }
 .firefly { animation: fly 5s ease-in-out infinite alternate; }
 @keyframes fly { 0% { transform: translate(0,0); opacity: 0.1 } 40% { opacity: 1 } 100% { transform: translate(38px,-46px); opacity: 0.2 } }
+/* กลางวันเท่านั้น — ธงไหว ใบไม้ไหว ฝุ่นลอย ให้ฉากสนทนาไม่นิ่งเกินไป */
+.daflag { transform-origin: bottom left; animation: flagSway 2.6s ease-in-out infinite; }
+@keyframes flagSway { 0%, 100% { transform: rotate(-4deg) } 50% { transform: rotate(7deg) } }
+.daleaf { animation: leafDrift linear infinite; }
+@keyframes leafDrift { 0% { transform: translate(0,0) rotate(0deg); opacity: 0 } 10% { opacity: 0.55 } 90% { opacity: 0.55 } 100% { transform: translate(70px,26px) rotate(80deg); opacity: 0 } }
+.dadust { animation: dustFloat ease-in-out infinite alternate; }
+@keyframes dustFloat { from { transform: translateY(0); opacity: 0.15 } to { transform: translateY(-18px); opacity: 0.45 } }
 .boat-drift { animation: bob 7s ease-in-out infinite alternate; }
 @keyframes bob { from { transform: translateY(0) } to { transform: translateY(6px) } }
 .layer-far { animation: sway 24s ease-in-out infinite alternate; }
@@ -240,6 +252,7 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
 .pb-card .nm { font-size: 0.82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; }
 .pb-card .sk { font-size: 0.72rem; color: var(--gold-dim); }
 .pb-card.dead { filter: grayscale(1) brightness(0.55); }
+.pb-card:not(.dead) { animation: tgtBreathe 4.5s ease-in-out infinite; animation-delay: calc(var(--bi, 0) * 0.12s); }
 .pb-card.dead::after { content: '✝'; position: absolute; top: 4px; right: 8px; font-size: 1.2rem; color: #ff8080; }
 .pb-card.dead svg { transform: rotate(90deg) translateX(6px); }
 
@@ -270,9 +283,12 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
 .tgt .nm { font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px; }
 .tgt .badge { position: absolute; top: 4px; left: 4px; width: 11px; height: 11px; border-radius: 50%; background: var(--bcol, var(--silver)); box-shadow: 0 0 6px var(--bcol, transparent); }
 .tgt.selectable:hover { transform: translateY(-2px); }
-.tgt.sel { border-color: var(--gold); background: rgba(245,197,24,0.16); transform: scale(1.05); box-shadow: 0 0 14px rgba(245,197,24,0.35); }
-.tgt.dead { filter: grayscale(1) brightness(0.5); pointer-events: none; }
+.tgt.sel { border-color: var(--gold); background: rgba(245,197,24,0.16); transform: scale(1.05); box-shadow: 0 0 14px rgba(245,197,24,0.35); animation: none; }
+.tgt.dead { filter: grayscale(1) brightness(0.5); pointer-events: none; animation: none; }
 .tgt.dead::after { content: '✝'; position: absolute; top: 2px; right: 6px; color: #ff8080; }
+/* หายใจเบาๆ ตอนไม่มีอะไรเกิดขึ้น — ให้บอร์ดดูมีชีวิตตลอดเกม ไม่ใช่แค่ตอนคัตซีน */
+.tgt:not(.sel):not(.dead) { animation: tgtBreathe 4.5s ease-in-out infinite; animation-delay: calc(var(--bi, 0) * 0.15s); }
+@keyframes tgtBreathe { 0%, 100% { transform: scale(1); opacity: 0.94 } 50% { transform: scale(1.015); opacity: 1 } }
 .tgt.me { outline: 2px dashed rgba(255,255,255,0.35); outline-offset: 2px; }
 .tgt .votes { position: absolute; bottom: -6px; right: -6px; font-size: 0.72rem; font-weight: 600; color: #fff;
   background: var(--red); border: 2px solid var(--ink); border-radius: 999px; padding: 1px 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.5);
