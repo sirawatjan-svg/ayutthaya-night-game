@@ -728,11 +728,11 @@ const Host = (() => {
   function renderBoard(revealAll) {
     // ห้ามโชว์ศักดินารายคนบนจอสาธารณะ — จะเดาบทบาทได้ทันที (50,000=เจ้าเมือง ฯลฯ)
     const showRoles = revealAll || (meta && meta.phase === 'end');
-    $('h-board').innerHTML = Object.entries(players).map(([pid, p]) => {
+    $('h-board').innerHTML = Object.entries(players).map(([pid, p], i) => {
       const dead = !alive[pid];
       const r = roles[pid];
       const roleTag = (showRoles || dead) && r ? `<div class="sk" style="color:${ROLES[r].color}">${ROLES[r].name}</div>` : '<div class="sk">&nbsp;</div>';
-      return `<div class="pb-card ${dead ? 'dead' : ''}" data-pid="${pid}" title="แตะเพื่อจัดการผู้เล่นนี้">${Art.avatar(p.avatar || 0)}
+      return `<div class="pb-card ${dead ? 'dead' : ''}" data-pid="${pid}" title="แตะเพื่อจัดการผู้เล่นนี้" style="--bi:${i}">${Art.avatar(p.avatar || 0)}
         <div class="nm">${esc(p.name)}</div>${roleTag}</div>`;
     }).join('');
     $('h-board').querySelectorAll('.pb-card').forEach(c => { c.onclick = () => playerMenu(c.dataset.pid); });
