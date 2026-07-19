@@ -520,7 +520,8 @@ const Host = (() => {
     if (pub.gifted) await FX.play('cutGift');
     if (pub.stealCount) await FX.play('cutSteal');
     if (pub.exec.length) await FX.play('cutExec');
-    if (pub.deaths.some(d => d.cause === 'kill') || pub.lordSaved) await FX.play('cutKill');
+    if (pub.lordSaved) await FX.play('cutLordSaved'); // เหตุการณ์ระดับสูงสุดของคืน แยกคัตซีนจากการฆ่าธรรมดา
+    else if (pub.deaths.some(d => d.cause === 'kill')) await FX.play('cutKill');
     if (pub.saved) await FX.play('cutHeal');
     for (const d of pub.deaths) {
       const nm = players[d.pid].name;
