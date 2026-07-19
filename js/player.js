@@ -270,7 +270,10 @@ const Player = (() => {
         // แก้ด้วยเกร็ดความรู้หมุนอัตโนมัติ ให้มีอะไรอ่าน/รอดูต่อระหว่างฟังครู แทนจอว่างเปล่า
         el.innerHTML = `<div class="p-note" style="animation:revealFade 0.8s ease">${STORY.opening}</div>
           <p class="p-note" style="color:var(--gold)">ฟังครูแนะนำบทบาทแต่ละฝ่าย แล้วแตะแถบด้านบนเพื่อดูบทบาทของเจ้าอีกครั้งได้เสมอ</p>
+          <button class="btn btn-gold w100" id="p-practice">🎯 ลองฝึกเล่นบทบาทของเจ้า (สั้นๆ ก่อนเริ่มจริง)</button>
           <div class="trivia" id="reveal-trivia"></div>`;
+        const pb = $('p-practice');
+        if (pb) pb.onclick = () => { if (typeof Practice !== 'undefined') Practice.start(myRole, { name: me && me.name, avatar: me && me.avatar }); };
         startRevealTrivia();
         if (!revealShown) { revealShown = true; setTimeout(() => showRoleCard(true), 600); }
         break;
