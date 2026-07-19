@@ -444,12 +444,20 @@ const Player = (() => {
     const box = document.getElementById('p-votelive');
     if (box) box.innerHTML = voteLiveHtmlP();
     if (voteRedraw) voteRedraw(); // รีเฟรชตัวเลข 🗳️ ใต้รูปผู้เล่นในกริดเลือกเป้าหมายด้วย (แบบ Among Us)
+    const vb = document.getElementById('p-voteboard'); // กริดแบบอ่านอย่างเดียวหลังลงมติแล้ว
+    if (vb) vb.innerHTML = targetGrid(new Set(), { includeSelf: true, showVoteCounts: true });
   }
   function renderVote(el) {
     const q = meta.voteQuota || 1;
     voteRedraw = null;
     Net.once(`${R}/votes/${meta.day}/${pid}`).then(v => {
-      if (v) { el.innerHTML = `<div class="done-note">✔ ลงมติแล้ว รอเพื่อนๆ...</div><div id="p-votelive">${voteLiveHtmlP()}</div>${inboxPanel()}`; return; }
+      if (v) {
+        // ลงมติแล้ว — ยังคงเห็นตัวเลขโหวตใต้รูปแต่ละคนสดๆ (แบบ Among Us) ไม่ใช่แค่รายการตัวหนังสือ
+        el.innerHTML = `<div class="done-note">✔ ลงมติแล้ว รอเพื่อนๆ...</div>
+          <div class="p-board" id="p-voteboard">${targetGrid(new Set(), { includeSelf: true, showVoteCounts: true })}</div>
+          <div id="p-votelive">${voteLiveHtmlP()}</div>${inboxPanel()}`;
+        return;
+      }
       el.innerHTML = '<div id="p-voteui"></div><div id="p-votelive">' + voteLiveHtmlP() + '</div>';
       voteRedraw = actionUI(el.querySelector('#p-voteui'), {
         title: `🗳️ ลงมติขับผู้ต้องสงสัย (เลือก ${q} คน)`,
