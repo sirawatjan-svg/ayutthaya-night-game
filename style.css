@@ -345,6 +345,15 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
 .prac-choices { display: flex; flex-direction: column; gap: 8px; margin: 6px 0; }
 .prac-choice { text-align: left; white-space: normal; padding: 12px 14px; font-size: 0.95rem; border-radius: 12px; }
 .prac-modal .p-board { max-height: 40dvh; overflow-y: auto; }
+.prac-rolelist { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; max-height: 56dvh; overflow-y: auto; }
+.prac-rolebtn { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; cursor: pointer;
+  background: rgba(0,0,0,0.28); border: 1px solid var(--line); border-left: 4px solid var(--tint, var(--gold));
+  border-radius: 12px; padding: 10px 12px; font-family: 'Mitr'; color: var(--cream); transition: transform 0.15s, background 0.15s; }
+.prac-rolebtn:active { transform: scale(0.98); background: rgba(245,197,24,0.1); }
+.prac-rolemed { flex-shrink: 0; display: flex; }
+.prac-roletext { display: flex; flex-direction: column; gap: 2px; }
+.prac-roletext b { font-size: 1.05rem; }
+.prac-roletext small { font-size: 0.78rem; color: var(--cream); opacity: 0.75; line-height: 1.4; }
 
 /* การ์ดเปิดบทบาท */
 .reveal-wrap { perspective: 1000px; }
