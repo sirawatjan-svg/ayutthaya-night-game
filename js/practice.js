@@ -27,16 +27,40 @@ const Practice = (() => {
   const VICTIM_I = 1;  // แม่นางจวง = เป้าที่ศัตรูจะฆ่าคืนนี้ (สำหรับหมอ)
   const nm = (i) => esc(BOTS[i].name);
 
-  let role = null, meInfo = null, scenes = [], si = 0, sel = new Set(), showingFb = false, fbHtml = '';
+  let role = null, meInfo = null, scenes = [], si = 0, sel = new Set(), showingFb = false, fbHtml = '', fromPicker = false;
 
-  // ---------------- จุดเริ่ม ----------------
-  function start(r, info) {
+  // ---------------- เมนูเลือกอาชีพที่อยากลองฝึก (ใช้ตอนรอในล็อบบี้ — ลองอาชีพไหนก็ได้) ----------------
+  function pick(info) {
+    if (typeof ROLES === 'undefined' || typeof App === 'undefined') return;
+    meInfo = info || { name: 'เจ้า', avatar: 0 };
+    const order = (typeof ROLE_ORDER !== 'undefined') ? ROLE_ORDER : Object.keys(ROLES);
+    const tiles = order.map(r => {
+      const R = ROLES[r];
+      return `<button class="prac-rolebtn" data-r="${r}" style="--tint:${R.color}">
+        <span class="prac-rolemed">${Art.roleMedallion(r, 42)}</span>
+        <span class="prac-roletext"><b style="color:${R.color}">${R.name}</b><small>${esc(R.ability)}</small></span></button>`;
+    }).join('');
+    App.modal(`<div class="prac-modal">
+      <div class="prac-badge">🎯 โหมดฝึกซ้อม — ลองอาชีพไหนก็ได้ เพื่อเตรียมตัวก่อนเล่นจริง</div>
+      <h2 class="panel-title sm">อยากลองฝึกเป็นอาชีพไหน?</h2>
+      <div class="prac-rolelist">${tiles}</div>
+      <button class="btn btn-ghost w100" onclick="App.closeModal()">ปิด</button></div>`);
+    document.querySelectorAll('.prac-rolebtn').forEach(b => {
+      b.onclick = () => run(b.dataset.r, meInfo, true);
+    });
+    sfx('tick');
+  }
+
+  // ---------------- จุดเริ่ม (ฝึกอาชีพเดียว) ----------------
+  function run(r, info, viaPicker) {
     if (typeof ROLES === 'undefined' || !ROLES[r] || typeof App === 'undefined') return;
-    role = r; meInfo = info || { name: 'เจ้า', avatar: 0 };
+    role = r; fromPicker = !!viaPicker;
+    if (info) meInfo = info; if (!meInfo) meInfo = { name: 'เจ้า', avatar: 0 };
     scenes = build(r); si = 0; sel = new Set(); showingFb = false;
     sfx('whoosh');
     render();
   }
+  function start(r, info) { run(r, info, false); }
 
   // ---------------- ชิ้นส่วน UI ----------------
   function gridHtml(includeSelf) {
@@ -83,10 +107,13 @@ const Practice = (() => {
     if (sc.type === 'summary') {
       App.modal(shell(`<div class="prac-summary">${sc.body}</div>
         <div class="confirm-row">
-          <button class="btn btn-ghost" id="prac-again">↺ ฝึกอีกครั้ง</button>
+          <button class="btn btn-ghost" id="prac-again">↺ ฝึกซ้ำ</button>
+          ${fromPicker ? '<button class="btn btn-ghost" id="prac-other">🎭 อาชีพอื่น</button>' : ''}
           <button class="btn btn-gold w100" id="prac-done">เข้าใจแล้ว ✓</button>
         </div>`));
       $('prac-again').onclick = () => { si = 0; sel = new Set(); showingFb = false; sfx('whoosh'); render(); };
+      const other = $('prac-other');
+      if (other) other.onclick = () => pick(meInfo);
       $('prac-done').onclick = () => { sfx('chime'); App.closeModal(); };
       return;
     }
@@ -244,5 +271,5 @@ const Practice = (() => {
     }
   }
 
-  return { start };
+  return { start, pick };
 })();
