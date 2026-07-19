@@ -113,6 +113,7 @@ const Host = (() => {
 
   // ---------------- เริ่มเกมใหม่หลังจบ (คนเดิม ไม่ต้องเข้าลิงก์ใหม่) ----------------
   async function restart() {
+    LivingEnv.resume(); // กันค้าง pause ข้ามเกมถ้าเผื่อไว้
     const pids = shuffle(Object.keys(players));
     if (pids.length < MIN_PLAYERS) return;
     const setup = roleSetup(pids.length);
@@ -306,6 +307,7 @@ const Host = (() => {
     await setPhase('duskfx', meta.night, day, 0);
     await Net.set(R + '/voteresults/' + day, { day, out: out.map(p => ({ pid: p, role: roles[p] })), tally });
 
+    if (out.length) LivingEnv.pause();
     for (const t of out) {
       alive[t] = false;
       await Net.set(R + '/alive/' + t, false);
@@ -324,6 +326,7 @@ const Host = (() => {
       }
     }
     if (out.length === 0) log('⚖️ วันนี้ไม่มีผู้ถูกขับออก (ไม่มีเสียงโหวต)');
+    LivingEnv.resume();
     if (await checkWin()) return;
     await toNight(meta.night + 1);
   }
@@ -488,6 +491,8 @@ const Host = (() => {
     for (const m of inbox) await Net.push(R + '/private/' + m.pid, { night: n, text: m.text });
 
     // คัตซีนเงาสั้นๆ (ไร้ชื่อ สร้างอารมณ์) → ปิดท้ายด้วย "รายงานยามเช้า" ใบเดียวอ่านง่าย
+    // หยุดเหตุการณ์แวดล้อมชั่วคราวระหว่างคัตซีน (ประหยัดแบต แม้จะถูกคัตซีนบังอยู่แล้วก็ตาม)
+    LivingEnv.pause();
     if (pub.gifted) await FX.play('cutGift');
     if (pub.stealCount) await FX.play('cutSteal');
     if (pub.exec.length) await FX.play('cutExec');
@@ -506,6 +511,7 @@ const Host = (() => {
       night: n, saved: pub.saved, lordSaved: pub.lordSaved, stealTotal: pub.stealTotal, gifted: pub.gifted,
       deaths: pub.deaths.map(d => ({ name: players[d.pid].name, role: d.role, cause: d.cause })),
     });
+    LivingEnv.resume();
 
     if (loot > 0) log(`🪙 ชุมโจรสะสมศักดินาแล้ว ${loot}/${goal} ไร่`);
     if (await checkWin()) return;
@@ -525,6 +531,7 @@ const Host = (() => {
   }
 
   async function endGame(team, title, text) {
+    LivingEnv.resume(); // กันเผลอค้าง pause ถ้าจบเกมกลางคัตซีน/โหวต (ทุกทางชนะมาบรรจบที่นี่)
     // คิดคะแนน + เขียนก่อนประกาศผู้ชนะ เพื่อให้มือถือนักเรียนเห็นคะแนนพร้อมกัน
     let scores = null;
     try {
@@ -601,13 +608,14 @@ const Host = (() => {
     const days = Object.keys(lastVoteRes).map(Number);
     const nights = Object.keys(lastHist).map(Number);
     const maxD = Math.max(0, ...days, ...nights.map(n => n - 1));
-    let out = `<div class="tl-day"><div class="tl-title">🌌 คืนที่ 1 — ทุกคนรับบทบาทลับของตน</div></div>`;
+    let ti = 0;
+    let out = `<div class="tl-day" style="--ti:${ti++}"><div class="tl-title">🌌 คืนที่ 1 — ทุกคนรับบทบาทลับของตน</div></div>`;
     for (let d = 1; d <= maxD + 1; d++) {
       const vr = lastVoteRes[d];
       if (vr) {
         let lines = (vr.out || []).map(o => `⚖️ ชาวเมืองขับ <b>${nameOf(o.pid)}</b> (${roleTag(o.pid)}) — ${(vr.tally || {})[o.pid] || 0} เสียง`);
         if (!lines.length) lines = ['⚖️ ไม่มีผู้ถูกขับออก'];
-        out += `<div class="tl-day"><div class="tl-title">☀️ วันที่ ${d} ณ ${locationOfDay(d).name}</div>${lines.map(l => `<div class="tl-line">${l}</div>`).join('')}</div>`;
+        out += `<div class="tl-day" style="--ti:${ti++}"><div class="tl-title">☀️ วันที่ ${d} ณ ${locationOfDay(d).name}</div>${lines.map(l => `<div class="tl-line">${l}</div>`).join('')}</div>`;
       }
       const h = lastHist[d + 1];
       if (h) {
@@ -624,7 +632,7 @@ const Host = (() => {
         if (h.lordSaved) L.push('⚔️ องครักษ์สละชีพปกป้องเจ้าเมืองจากการลอบสังหาร');
         (h.saved || []).forEach(p => L.push(`💚 หมอหลวงช่วยชีวิต <b>${nameOf(p)}</b> ไว้ได้`));
         if (!L.length) L.push('🕊️ คืนนี้สงบ ไม่มีเหตุการณ์');
-        out += `<div class="tl-day night"><div class="tl-title">🌙 คืนที่ ${d + 1}</div>${L.map(l => `<div class="tl-line">${l}</div>`).join('')}</div>`;
+        out += `<div class="tl-day night" style="--ti:${ti++}"><div class="tl-title">🌙 คืนที่ ${d + 1}</div>${L.map(l => `<div class="tl-line">${l}</div>`).join('')}</div>`;
       }
     }
     return out;
@@ -635,11 +643,11 @@ const Host = (() => {
     const sorted = Object.entries(scores).sort((a, b) => b[1].total - a[1].total);
     const rows = sorted.map(([pid, s], i) => {
       const r = ROLES[s.role];
-      return `<tr class="${i === 0 ? 'mvp' : ''}"><td>${i === 0 ? '🏆' : i + 1}</td>
+      return `<tr class="${i === 0 ? 'mvp' : ''}" style="--bi:${i}"><td>${i === 0 ? '🏆' : i + 1}</td>
         <td>${esc(s.name)}${i === 0 ? ' <span class="mvp-tag">MVP</span>' : ''}</td>
         <td style="color:${r.color}">${r.name}</td>
         <td>${s.alive ? '💚 รอด' : '✝'}</td>
-        <td class="pts">${s.total}</td>
+        <td class="pts" data-final="${s.total}">0</td>
         <td class="notes">${s.notes.map(esc).join('<br>') || '-'}</td></tr>`;
     }).join('');
     let ov = document.getElementById('summary-ov');
@@ -663,6 +671,19 @@ const Host = (() => {
     document.body.appendChild(ov);
     ov.querySelector('#btn-sum-close').onclick = () => ov.remove();
     ov.querySelector('#btn-csv').onclick = () => downloadCSV(sorted);
+    // คะแนนนับขึ้นทีละแถว ตามจังหวะที่แถวโผล่ (ไม่ใช้ requestAnimationFrame กันปัญหา tab พื้นหลัง)
+    ov.querySelectorAll('.pts[data-final]').forEach((el, i) => {
+      const final = parseInt(el.dataset.final, 10) || 0;
+      setTimeout(() => {
+        const dur = 700, t0 = performance.now();
+        const step = () => {
+          const t = Math.min(1, (performance.now() - t0) / dur);
+          el.textContent = Math.round(final * (1 - Math.pow(1 - t, 3)));
+          if (t < 1) setTimeout(step, 30); else el.textContent = final;
+        };
+        step();
+      }, i * 120 + 150);
+    });
   }
 
   function downloadCSV(sorted) {
