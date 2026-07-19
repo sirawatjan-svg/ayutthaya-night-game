@@ -433,9 +433,14 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
 .lead-table .pts { font-size: 1.15rem; font-weight: 600; color: var(--gold); }
 .lead-table .notes { font-size: 0.75rem; font-weight: 300; opacity: 0.8; }
 .lead-table tr.mvp td { background: rgba(245,197,24,0.1); }
-.mvp-tag { background: var(--gold); color: #3a2a02; border-radius: 999px; padding: 1px 8px; font-size: 0.7rem; font-weight: 600; }
+.mvp-tag { background: var(--gold); color: #3a2a02; border-radius: 999px; padding: 1px 8px; font-size: 0.7rem; font-weight: 600; opacity: 0; animation: badgeFadeIn 0.4s ease forwards; animation-delay: calc(var(--bi, 0) * 0.12s + 0.5s); }
+/* แถวคะแนนโผล่ทีละแถว แทนที่จะขึ้นมาพร้อมกันทั้งตาราง (เว้นหัวตาราง) */
+.lead-table tr:not(:first-child) { opacity: 0; transform: translateY(6px); animation: rowRise 0.4s ease forwards; animation-delay: calc(var(--bi, 0) * 0.12s); }
+@keyframes rowRise { to { opacity: 1; transform: none } }
+@keyframes badgeFadeIn { to { opacity: 1 } }
 .tl-wrap { max-height: 62dvh; overflow-y: auto; padding-right: 6px; }
-.tl-day { border-left: 3px solid var(--gold-dim); padding: 6px 0 6px 12px; margin-bottom: 10px; }
+.tl-day { border-left: 3px solid var(--gold-dim); padding: 6px 0 6px 12px; margin-bottom: 10px;
+  opacity: 0; animation: rowRise 0.5s ease forwards; animation-delay: calc(var(--ti, 0) * 0.18s); }
 .tl-day.night { border-left-color: var(--blue); }
 .tl-title { color: var(--gold); font-family: 'Srisakdi'; font-size: 1.05rem; margin-bottom: 4px; }
 .tl-line { font-size: 0.88rem; font-weight: 300; padding: 2px 0; }
