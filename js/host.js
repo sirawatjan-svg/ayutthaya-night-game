@@ -7,7 +7,7 @@ const Host = (() => {
   let meta = null, players = {}, roles = {}, alive = {}, sak = {}, loot = 0;
   let acts = null, votes = null, thiefTurns = {};
   let goal = 450, lordShield = false; // เป้าโจร (ตามขนาดห้อง) + องครักษ์เจ้าเมือง (ใช้ได้ 1 ครั้ง)
-  let allChats = {}, chatWatchOpen = false;
+  let chatMsgs = {};
   let busy = false, tickTimer = null, unsubs = [];
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -166,11 +166,10 @@ const Host = (() => {
       Net.on(R + '/lordShield', v => { lordShield = !!v; }),
       Net.on(R + '/act', v => { acts = v || {}; renderPending(); }),
       Net.on(R + '/votes', v => { votes = v || {}; if (meta && meta.phase === 'vote') { renderNarration(); renderBoard(); } renderPending(); }),
-      Net.on(R + '/chat', v => { allChats = v || {}; renderChatWatch(); }),
+      Net.on(R + '/chat/all', v => { chatMsgs = v || {}; renderChatWatch(); }),
     );
     $('btn-skip').onclick = () => advance(true);
     $('btn-music').onclick = () => { const m = Sound.toggleMute(); $('btn-music').textContent = m ? '🔇 ปิดเพลง' : '🔊 เพลง'; };
-    $('btn-chatwatch').onclick = () => { chatWatchOpen = true; renderChatWatch(); };
     // QR + รหัสห้อง โชว์ตลอดเกม — เด็กหลุดสแกนกลับเข้าได้ (พิมพ์ชื่อเดิม)
     const joinUrl = location.origin + location.pathname + '?room=' + code;
     $('hr-code').textContent = code;
@@ -190,30 +189,16 @@ const Host = (() => {
   }
 
   // ---------------- แผงควบคุมครู: แตะชื่อผู้เล่นบนกระดาน ----------------
-  // ---------------- ตรวจแชท: ครูดูข้อความทุกช่องรวมกันเพื่อสอดส่องเนื้อหาไม่เหมาะสม ----------------
-  // หมายเหตุ: เปิดเป็น modal ชั่วคราวเท่านั้น (ไม่ใช่แผงค้างจอ) เพราะจอนี้ฉายให้เด็กทั้งห้องดู
-  // ถ้าเปิดค้างไว้จะเห็นแชทลับของทุกฝ่าย (โจร/ศัตรู ฯลฯ) ทำลายกลไกซ่อนข้อมูลของเกม
+  // ---------------- แชทรวม: ค้างจอตลอดเวลา (แชทรวมทุกคนเห็นอยู่แล้ว ไม่ใช่ช่องลับ จึงฉายโชว์ได้ไม่มีปัญหา) ----------------
   function nameOfP(pid) { return players[pid] ? players[pid].name : '?'; }
   function renderChatWatch() {
-    if (!chatWatchOpen) return;
-    const rows = [];
-    for (const ch in allChats) {
-      for (const k in allChats[ch]) {
-        const m = allChats[ch][k];
-        rows.push({ ch, ts: m.ts || 0, name: m.name || nameOfP(m.pid), text: m.text });
-      }
-    }
+    const el = $('h-chat');
+    if (!el) return;
+    const rows = Object.values(chatMsgs).map(m => ({ ts: m.ts || 0, name: m.name || nameOfP(m.pid), text: m.text }));
     rows.sort((a, b) => b.ts - a.ts);
-    const chLabel = (ch) => ch.startsWith('note-') ? '🔒 สมุดลับ' : ch === 'all' ? '💬 รวม' : '🔒 ' + ch;
-    const html = rows.slice(0, 200).map(r =>
-      `<div class="cw-row"><span class="cw-ch">${chLabel(r.ch)}</span><b>${esc(r.name)}:</b> ${esc(r.text)}</div>`).join('') ||
+    el.innerHTML = rows.slice(0, 50).map(r =>
+      `<div class="cw-row"><b>${esc(r.name)}:</b> ${esc(r.text)}</div>`).join('') ||
       '<p class="p-note">ยังไม่มีข้อความ</p>';
-    App.modal(`<h2 class="panel-title sm">👁 ตรวจแชททุกช่อง (ล่าสุดก่อน)</h2>
-      <p class="p-note" style="color:var(--gold)">⚠️ ปิดหน้าต่างนี้ก่อนหันจอกลับไปฉายให้เด็กดู เพราะเห็นแชทลับทุกฝ่าย</p>
-      <div class="cw-list">${html}</div>
-      <button class="btn btn-ghost w100" id="cw-close">ปิด</button>`);
-    document.getElementById('cw-close').onclick = () => { chatWatchOpen = false; App.closeModal(); };
-    document.getElementById('modal-wrap').onclick = (e) => { if (e.target.id === 'modal-wrap') { chatWatchOpen = false; App.closeModal(); } };
   }
 
   function playerMenu(pid) {
