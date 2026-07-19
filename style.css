@@ -329,6 +329,23 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
 .confirm-row { display: flex; gap: 8px; margin-top: 10px; }
 .done-note { text-align: center; color: var(--green); padding: 8px; }
 
+/* ---------- โหมดฝึกซ้อม (sandbox — ไม่ใช่เกมจริง) ---------- */
+.prac-modal { text-align: left; }
+.prac-badge { background: repeating-linear-gradient(45deg, rgba(47,175,102,0.22), rgba(47,175,102,0.22) 12px, rgba(47,175,102,0.10) 12px, rgba(47,175,102,0.10) 24px);
+  border: 1px dashed var(--green); color: #b7f0cf; font-size: 0.82rem; text-align: center; border-radius: 10px; padding: 7px 10px; margin-bottom: 8px; }
+.prac-step { font-size: 0.82rem; color: var(--gold-dim); text-align: center; margin-bottom: 10px; }
+.prac-body .action-title { font-size: 1.15rem; color: var(--gold); margin-bottom: 4px; }
+.prac-body .action-sub { font-size: 0.9rem; color: var(--cream); opacity: 0.85; margin-bottom: 10px; }
+.prac-info, .prac-summary { font-size: 1rem; line-height: 1.7; padding: 6px 4px 12px; }
+.prac-summary { color: var(--cream); }
+.prac-fb { font-size: 0.98rem; line-height: 1.65; border-radius: 12px; padding: 12px 14px; margin: 4px 0 12px; border: 1px solid; animation: revealFade 0.4s ease; }
+.prac-fb.ok { background: rgba(47,175,102,0.14); border-color: var(--green); }
+.prac-fb.warn { background: rgba(242,140,40,0.14); border-color: var(--orange); }
+.prac-fb.bad { background: rgba(224,49,49,0.16); border-color: var(--red); }
+.prac-choices { display: flex; flex-direction: column; gap: 8px; margin: 6px 0; }
+.prac-choice { text-align: left; white-space: normal; padding: 12px 14px; font-size: 0.95rem; border-radius: 12px; }
+.prac-modal .p-board { max-height: 40dvh; overflow-y: auto; }
+
 /* การ์ดเปิดบทบาท */
 .reveal-wrap { perspective: 1000px; }
 .reveal-card { position: relative; width: min(320px, 84vw); margin: 12px auto; height: 420px; transform-style: preserve-3d; transition: transform 1.1s cubic-bezier(0.3, 0.9, 0.3, 1); }
