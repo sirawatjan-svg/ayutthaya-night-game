@@ -252,7 +252,8 @@ const FX = (() => {
         ${sparkles(24, 'fx-purple')}
         <h2 class="fx-rainbow">คนบ้าถูกโหวตออก... คนบ้าชนะ!!</h2>
         <div class="fx-name">${o.name}</div>
-        <div class="fx-sub">เสียงหัวเราะดังก้องทั่วพระนคร ฮ่าๆๆๆ</div>`, '#9b59b6'), 5000, 'fx-dark');
+        <div class="fx-sub">เสียงหัวเราะดังก้องทั่วพระนคร ฮ่าๆๆๆ</div>
+        <div class="fx-closing">"${STORY.closingLine}"</div>`, '#9b59b6'), 5000, 'fx-dark');
     },
     // ---------- คัตซีนเงา (สั้น ไร้ชื่อ — สร้างอารมณ์ก่อนรายงานเช้า) ----------
     cutKill() {
@@ -267,6 +268,22 @@ const FX = (() => {
           <rect class="cs-flash" width="400" height="200" fill="#fff"/>
         </svg>
         <div class="cs-cap">เงามรณะเคลื่อนไหวในความมืด...</div></div>`, 3400, 'fx-dark fx-cut');
+    },
+    // เหตุการณ์ระดับสูงสุดของคืน (เกิดได้แค่ครั้งเดียวต่อเกม) — แยกจาก cutKill ธรรมดาให้เห็นชัดว่าไม่ใช่แค่การตายทั่วไป
+    cutLordSaved() {
+      Sound.whoosh(); setTimeout(() => Sound.slash(), 1700); setTimeout(() => Sound.gong(), 1900); setTimeout(() => Sound.fanfare(), 2300);
+      return show(`<div class="cs-scene cs-big">
+        <svg viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice">
+          <defs><radialGradient id="csg" cx="72%" cy="52%" r="55%"><stop offset="0" stop-color="#3a3010"/><stop offset="1" stop-color="#0a0e2a"/></radialGradient></defs>
+          <rect width="400" height="200" fill="url(#csg)"/><circle cx="330" cy="38" r="16" fill="#e8e4d0" opacity="0.85"/>
+          <path d="M0,150 L60,150 L70,110 L80,150 L400,150 L400,200 L0,200 Z" fill="#05060f"/>
+          <g class="cs-lordsafe"><circle cx="300" cy="104" r="9" fill="#05060f"/><path d="M290,112 Q300,106 310,112 L312,150 L288,150 Z" fill="#05060f"/></g>
+          <g class="cs-guard"><circle cx="270" cy="100" r="9" fill="#05060f"/><path d="M260,108 Q270,100 280,108 L282,150 L258,150 Z" fill="#05060f"/></g>
+          <g class="cs-assassin"><circle cx="0" cy="104" r="9" fill="#05060f"/><path d="M-10,112 Q0,106 10,112 L12,150 L-12,150 Z" fill="#05060f"/><path class="cs-dagger" d="M10,100 L26,88 L28,92 L14,104 Z" fill="#05060f"/></g>
+          <circle class="cs-shieldburst" cx="270" cy="100" r="4" fill="none" stroke="#f5c518" stroke-width="3" opacity="0"/>
+          <rect class="cs-goldflash" width="400" height="200" fill="#f5c518"/>
+        </svg>
+        <div class="cs-cap cs-cap-big">⚔️ องครักษ์พลีชีพขวางดาบ... เจ้าเมืองรอดชีวิต!</div></div>`, 4200, 'fx-dark fx-cut');
     },
     cutSteal() {
       Sound.whoosh(); setTimeout(() => Sound.coins(), 1100);
@@ -355,7 +372,8 @@ const FX = (() => {
         <div class="fx-art fx-float">${Art.icon(em, 110)}</div>
         ${sparkles(26, 'fx-gold')}
         <h2 class="fx-big">${o.title}</h2>
-        <div class="fx-sub">${o.text || ''}</div>`, col), 6000, 'fx-dark');
+        <div class="fx-sub">${o.text || ''}</div>
+        <div class="fx-closing">"${STORY.closingLine}"</div>`, col), 6000, 'fx-dark');
     },
   };
 
