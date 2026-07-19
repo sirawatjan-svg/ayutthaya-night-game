@@ -124,6 +124,7 @@ const Sound = (() => {
     fanfare() { const n = [523, 659, 784, 1047, 784, 1047]; n.forEach((f, i) => { tone(f, 'triangle', 0.4, 0.16, i * 0.16); tone(f / 2, 'sine', 0.4, 0.1, i * 0.16); }); this.gong(); },
     lose() { [392, 349, 311, 262].forEach((f, i) => tone(f, 'triangle', 0.6, 0.14, i * 0.28)); },
     tick() { tone(1400, 'sine', 0.06, 0.06); },
+    yourTurn() { tone(740, 'sine', 0.18, 0.16, 0); tone(988, 'sine', 0.22, 0.16, 0.14); if (navigator.vibrate) navigator.vibrate([160, 90, 160]); },
     ambience(on) {
       const c = ac();
       if (ambGain) { try { ambGain.gain.linearRampToValueAtTime(0.0001, c.currentTime + 0.8); } catch (e) {} ambNodes.forEach(n => { try { n.stop(c.currentTime + 1); } catch (e) {} }); ambGain = null; ambNodes = []; }
