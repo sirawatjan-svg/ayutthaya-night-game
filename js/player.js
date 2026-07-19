@@ -128,6 +128,8 @@ const Player = (() => {
       $('pl-name').textContent = me.name;
     }
     $('pl-count').textContent = `มาแล้ว ${Object.keys(players).length}/40 คน — รอครูเริ่มเกม`;
+    const pp = $('pl-practice');
+    if (pp) pp.onclick = () => { if (typeof Practice !== 'undefined') Practice.pick({ name: me && me.name, avatar: me && me.avatar }); };
     App.startExplainer();
   }
 
