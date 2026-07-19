@@ -102,8 +102,22 @@ const Player = (() => {
     renderSak();
     renderRoleStrip();
     const key = meta.phase + ':' + meta.night + ':' + meta.day + ':' + (alive[pid] ? 1 : 0) + ':' + (myRole || '') + ':' + (meta.activeThief || '');
-    if (key !== lastPhaseKey) { lastPhaseKey = key; submitted = {}; renderMain(); }
+    if (key !== lastPhaseKey) {
+      lastPhaseKey = key; submitted = {}; renderMain();
+      // แจ้งเตือนแรงๆ ตอนถึงตาต้องทำอะไร (เสียง+สั่น+เรืองแสง) — ช่วยเด็กที่เผลอวางมือถือ ไม่ต้องมานั่งเดา
+      if (alive[pid] && ((meta.phase === 'night' && hasNightAction()) || meta.phase === 'vote')) {
+        Sound.yourTurn();
+        const badge = $('p-phase');
+        badge.classList.remove('yourturn'); void badge.offsetWidth; badge.classList.add('yourturn');
+      }
+    }
     renderBoardArea();
+  }
+  function hasNightAction() {
+    if (!myRole || myRole === 'mad' || myRole === 'slave' || myRole === 'serf') return false;
+    if (myRole === 'thief') return meta.activeThief === pid;
+    if (myRole === 'lord') return !!meta.giftNight;
+    return true; // enemy, doctor, noble, spy — มีแอ็กชันทุกคืนที่ยังไม่ตาย
   }
 
   function renderLobby() {
