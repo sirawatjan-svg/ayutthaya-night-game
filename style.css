@@ -322,10 +322,10 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
   background: rgba(0,0,0,0.3); color: var(--cream); cursor: pointer; white-space: nowrap; }
 .qc-btn:active { background: var(--gold); color: #3a2a02; }
 
-/* ---------- ครูตรวจแชท ---------- */
-.cw-list { max-height: 55dvh; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; margin: 10px 0; }
+/* ---------- แชทรวม (ค้างจอ) ---------- */
+.cw-list { overflow-y: auto; display: flex; flex-direction: column; gap: 5px; margin: 10px 0; }
 .cw-row { font-size: 0.85rem; background: rgba(0,0,0,0.3); border-radius: 8px; padding: 6px 10px; }
-.cw-ch { display: inline-block; font-size: 0.72rem; color: var(--gold-dim); margin-right: 6px; }
+.chat-panel { max-height: 16dvh; }
 .confirm-row { display: flex; gap: 8px; margin-top: 10px; }
 .done-note { text-align: center; color: var(--green); padding: 8px; }
 
