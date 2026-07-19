@@ -165,7 +165,7 @@ const Host = (() => {
       Net.on(R + '/goal', v => { if (v) goal = v; renderLoot(); }),
       Net.on(R + '/lordShield', v => { lordShield = !!v; }),
       Net.on(R + '/act', v => { acts = v || {}; renderPending(); }),
-      Net.on(R + '/votes', v => { votes = v || {}; if (meta && meta.phase === 'vote') renderNarration(); renderPending(); }),
+      Net.on(R + '/votes', v => { votes = v || {}; if (meta && meta.phase === 'vote') { renderNarration(); renderBoard(); } renderPending(); }),
       Net.on(R + '/chat', v => { allChats = v || {}; renderChatWatch(); }),
     );
     $('btn-skip').onclick = () => advance(true);
@@ -770,15 +770,24 @@ const Host = (() => {
     $('h-stats').innerHTML = Object.keys(groups).map(g => `<span class="astat">${groups[g]}: <b>${cnt[g]}</b></span>`).join('') +
       `<span class="astat">รวมรอด: <b>${alivePids().length}</b>/${Object.keys(players).length}</span>`;
   }
+  function boardVoteCounts() {
+    if (!meta || meta.phase !== 'vote') return null;
+    const dv = (votes && votes[meta.day]) || {};
+    const counts = {};
+    for (const v in dv) (Array.isArray(dv[v]) ? dv[v] : []).forEach(t => { counts[t] = (counts[t] || 0) + 1; });
+    return counts;
+  }
   function renderBoard(revealAll) {
     // ห้ามโชว์ศักดินารายคนบนจอสาธารณะ — จะเดาบทบาทได้ทันที (50,000=เจ้าเมือง ฯลฯ)
     const showRoles = revealAll || (meta && meta.phase === 'end');
+    const vc = boardVoteCounts(); // จอฉายให้ทั้งห้องดู — ต้องเห็นคะแนนโหวตสดแบบ Among Us ตรงนี้ด้วย ไม่ใช่แค่จอมือถือรายคน
     $('h-board').innerHTML = Object.entries(players).map(([pid, p], i) => {
       const dead = !alive[pid];
       const r = roles[pid];
       const roleTag = (showRoles || dead) && r ? `<div class="sk" style="color:${ROLES[r].color}">${ROLES[r].name}</div>` : '<div class="sk">&nbsp;</div>';
+      const cnt = vc ? (vc[pid] || 0) : 0;
       return `<div class="pb-card ${dead ? 'dead' : ''}" data-pid="${pid}" title="แตะเพื่อจัดการผู้เล่นนี้" style="--bi:${i}">${Art.avatar(p.avatar || 0)}
-        <div class="nm">${esc(p.name)}</div>${roleTag}</div>`;
+        <div class="nm">${esc(p.name)}</div>${roleTag}${cnt ? `<div class="votes">🗳️${cnt}</div>` : ''}</div>`;
     }).join('');
     $('h-board').querySelectorAll('.pb-card').forEach(c => { c.onclick = () => playerMenu(c.dataset.pid); });
   }
