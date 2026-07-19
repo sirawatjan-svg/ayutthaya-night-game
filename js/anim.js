@@ -357,7 +357,14 @@ const FX = (() => {
 // สุ่มทีละ 1 อย่างเท่านั้น ไม่ให้ซ้อนกัน — เกิดขึ้นแล้วเงียบ ค่อยสุ่มใหม่
 // ============================================================
 const LivingEnv = (() => {
-  let timer = null, layer = null;
+  let timer = null, layer = null, curMode = 'night', paused = false;
+  // แต่ละเหตุการณ์เหมาะกับช่วงเวลาต่างกัน — กันค้างคาว/ดาวตกโผล่ตอนกลางวันแดดจ้า
+  const MODE_EVENTS = {
+    day: ['bird'],
+    dawn: ['bird', 'cloudmoon'],
+    dusk: ['bird', 'cloudmoon', 'lantern'],
+    night: ['bat', 'shootingstar', 'cloudmoon', 'lantern'],
+  };
   const EVENTS = [
     { name: 'bird', dur: 6000, sound: false, svg: '<svg viewBox="0 0 24 12" style="width:26px;height:13px"><path d="M0,6 Q6,0 12,6 Q18,0 24,6 Q18,3 12,6 Q6,3 0,6" fill="rgba(10,10,20,0.75)"/></svg>' },
     { name: 'bat', dur: 5000, sound: false, svg: '<svg viewBox="0 0 28 14" style="width:24px;height:12px"><path d="M14,7 L9,2 L11,7 L2,4 L9,8 L2,11 L11,8.5 L9,13 L14,8.5 L19,13 L17,8 L26,11 L19,8 L26,4 L17,7 L19,2 Z" fill="rgba(6,6,14,0.8)"/></svg>' },
@@ -422,20 +429,25 @@ const LivingEnv = (() => {
   }
 
   function fireOne() {
-    const roll = Math.random();
-    if (roll < 0.32) spawnFlyby(EVENTS[0]);
-    else if (roll < 0.5) spawnFlyby(EVENTS[1]);
-    else if (roll < 0.68) spawnShootingStar();
-    else if (roll < 0.86) spawnCloudMoon();
+    const pool = MODE_EVENTS[curMode] || MODE_EVENTS.night;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    if (pick === 'bird') spawnFlyby(EVENTS[0]);
+    else if (pick === 'bat') spawnFlyby(EVENTS[1]);
+    else if (pick === 'shootingstar') spawnShootingStar();
+    else if (pick === 'cloudmoon') spawnCloudMoon();
     else spawnLantern();
     if (Math.random() < 0.4) Sound.ambientCue(); // บางครั้งมีเสียงคู่กัน ไม่ทุกครั้ง กันรำคาญ
   }
   function scheduleNext() {
     const delay = 20000 + Math.random() * 20000; // 20-40 วิ ต่อ 1 เหตุการณ์ ไม่ซ้อนกัน
-    timer = setTimeout(() => { fireOne(); scheduleNext(); }, delay);
+    timer = setTimeout(() => { if (!paused) fireOne(); scheduleNext(); }, delay);
   }
   return {
     start() { if (timer) return; scheduleNext(); },
     stop() { if (timer) { clearTimeout(timer); timer = null; } },
+    setMode(m) { curMode = MODE_EVENTS[m] ? m : 'night'; },
+    // หยุดเหตุการณ์แวดล้อมชั่วคราวตอนคัตซีนเล่น — ประหยัดแบตบนมือถือรุ่นเก่าแม้จะถูกคัตซีนบังอยู่แล้ว
+    pause() { paused = true; },
+    resume() { paused = false; },
   };
 })();
