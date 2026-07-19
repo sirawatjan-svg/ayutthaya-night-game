@@ -20,6 +20,7 @@ const App = (() => {
     const m = SCENE_OF[phase] || 'dusk';
     if (m === curScene) return;
     curScene = m;
+    LivingEnv.setMode(m);
     const showEl = $('bg-scene-' + (activeLayer === 'a' ? 'b' : 'a'));
     const hideEl = $('bg-scene-' + activeLayer);
     activeLayer = activeLayer === 'a' ? 'b' : 'a';
