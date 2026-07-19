@@ -277,8 +277,9 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
 .action-panel { border-radius: 16px; padding: 14px; background: var(--panel); border: 1px solid var(--line); margin-bottom: 10px; }
 .action-title { color: var(--gold); font-size: 1.05rem; margin-bottom: 4px; }
 .action-sub { font-size: 0.85rem; font-weight: 300; opacity: 0.85; margin-bottom: 10px; }
-.trivia { border-radius: 16px; padding: 14px; background: rgba(0,0,0,0.35); border: 1px dashed var(--line); font-weight: 300; font-size: 0.92rem; margin-bottom: 10px; }
+.trivia { border-radius: 16px; padding: 14px; background: rgba(0,0,0,0.35); border: 1px dashed var(--line); font-weight: 300; font-size: 0.92rem; margin-bottom: 10px; transition: opacity 0.3s ease; }
 .trivia b { color: var(--gold); }
+@keyframes revealFade { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }
 
 .p-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
 .tgt {
@@ -386,6 +387,8 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
 .fx-name { font-size: clamp(1.4rem, 5vw, 2rem); font-weight: 600; margin-top: 6px; }
 .fx-sub { font-weight: 300; opacity: 0.9; margin-top: 8px; }
 .fx-sub.fx-story { font-size: 0.95rem; line-height: 1.6; }
+/* ประโยคจดจำร่วมท้ายเกม — ขึ้นทุกครั้งไม่ว่าใครชนะ ให้เกมมี "ประโยคติดหู" */
+.fx-closing { margin-top: 16px; padding-top: 12px; border-top: 1px dashed rgba(255,255,255,0.25); font-family: 'Srisakdi'; font-size: 1.1rem; color: var(--gold-dim); opacity: 0; animation: capIn 1s 1.2s forwards; }
 .fx-verdict { font-size: 1.5rem; font-weight: 600; margin-top: 10px; }
 .v-yes { color: #ff6b6b; } .v-no { color: #6bdc9c; }
 .fx-art { position: relative; display: inline-block; }
@@ -518,6 +521,14 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
 @keyframes csSword { to { transform: rotate(95deg) } }
 .cs-stamp { transform-origin: 200px 100px; animation: csStamp 0.8s cubic-bezier(0.2,1.6,0.4,1) forwards; opacity: 0; }
 @keyframes csStamp { 0% { transform: scale(3); opacity: 0 } 60% { opacity: 1 } 100% { transform: scale(1); opacity: 1 } }
+/* คัตซีนพิเศษ: องครักษ์ปกป้องเจ้าเมือง — เหตุการณ์ระดับ ⭐⭐⭐⭐ แยกน้ำหนักจากคัตซีนธรรมดาชัดเจน */
+.cs-big svg { box-shadow: 0 20px 70px rgba(245,197,24,0.35), 0 20px 60px rgba(0,0,0,0.8); }
+.cs-cap-big { font-size: 1.5rem; color: var(--gold); text-shadow: 0 0 18px rgba(245,197,24,0.6); }
+.cs-guard { transform-origin: 270px 150px; animation: csGuardBlock 0.5s 1.7s cubic-bezier(0.3,0,0.5,1) forwards; }
+@keyframes csGuardBlock { 0% { transform: translateX(30px) } 60% { transform: translateX(-8px) rotate(-6deg) } 100% { transform: translateX(-4px) rotate(-10deg) } }
+.cs-shieldburst { animation: csShieldBurst 0.6s 1.85s ease-out forwards; }
+@keyframes csShieldBurst { 0% { r: 4; opacity: 1; stroke-width: 5 } 100% { r: 60; opacity: 0; stroke-width: 1 } }
+.cs-goldflash { opacity: 0; animation: csFlash 0.4s 1.85s linear; }
 
 /* ---------- รายงานยามเช้า ---------- */
 .mr-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; text-align: left; }
