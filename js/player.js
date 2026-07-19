@@ -233,6 +233,22 @@ const Player = (() => {
     const f = NIGHT_FACTS[(meta.night * 3 + meta.day) % NIGHT_FACTS.length];
     return `<div class="trivia"><b>📜 เกร็ดกรุงศรี:</b> ${f}</div>`;
   }
+  let revealTriviaTimer = null, revealTriviaIdx = 0;
+  function startRevealTrivia() {
+    clearInterval(revealTriviaTimer);
+    const show = () => {
+      const el = document.getElementById('reveal-trivia');
+      if (!el) { clearInterval(revealTriviaTimer); return; } // ออกจากหน้านี้ไปแล้ว หยุดตัวเอง
+      el.style.opacity = '0';
+      setTimeout(() => {
+        el.innerHTML = `<b>📜 เกร็ดกรุงศรี:</b> ${NIGHT_FACTS[revealTriviaIdx % NIGHT_FACTS.length]}`;
+        el.style.opacity = '1';
+        revealTriviaIdx++;
+      }, 300);
+    };
+    show();
+    revealTriviaTimer = setInterval(show, 6000);
+  }
   function inboxPanel() {
     if (!inboxMsgs.length) return '';
     const last = inboxMsgs.slice(-3).reverse();
@@ -250,7 +266,12 @@ const Player = (() => {
     }
     switch (meta.phase) {
       case 'reveal':
-        el.innerHTML = `<div class="p-note">${STORY.opening}</div><p class="p-note" style="color:var(--gold)">ฟังครูแนะนำบทบาทแต่ละฝ่าย แล้วแตะแถบด้านบนเพื่อดูบทบาทของเจ้าอีกครั้งได้เสมอ</p>`;
+        // ช่วงนี้ครูมักอธิบายกติกาปากเปล่านานหลายนาที — เดิมจอนิ่งสนิท เด็กเบื่อหยิบมือถือไปทำอื่น
+        // แก้ด้วยเกร็ดความรู้หมุนอัตโนมัติ ให้มีอะไรอ่าน/รอดูต่อระหว่างฟังครู แทนจอว่างเปล่า
+        el.innerHTML = `<div class="p-note" style="animation:revealFade 0.8s ease">${STORY.opening}</div>
+          <p class="p-note" style="color:var(--gold)">ฟังครูแนะนำบทบาทแต่ละฝ่าย แล้วแตะแถบด้านบนเพื่อดูบทบาทของเจ้าอีกครั้งได้เสมอ</p>
+          <div class="trivia" id="reveal-trivia"></div>`;
+        startRevealTrivia();
         if (!revealShown) { revealShown = true; setTimeout(() => showRoleCard(true), 600); }
         break;
       case 'night': renderNightAction(el); break;
