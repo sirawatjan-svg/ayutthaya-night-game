@@ -156,16 +156,16 @@ const Host = (() => {
     App.show('v-host');
     unsubs.push(
       Net.on(R + '/players', v => { players = v || {}; renderBoard(); renderStats(); }),
-      Net.on(R + '/meta', v => { meta = v || {}; renderTop(); renderNarration(); }),
+      Net.on(R + '/meta', v => { meta = v || {}; renderTop(); renderNarration(); renderPending(); }),
       Net.on(R + '/roles', v => { roles = v || {}; }),
-      Net.on(R + '/alive', v => { alive = v || {}; renderBoard(); renderStats(); }),
+      Net.on(R + '/alive', v => { alive = v || {}; renderBoard(); renderStats(); renderPending(); }),
       Net.on(R + '/sak', v => { sak = v || {}; renderBoard(); }),
       Net.on(R + '/loot', v => { loot = v || 0; renderLoot(); }),
       Net.on(R + '/thiefTurns', v => { thiefTurns = v || {}; }),
       Net.on(R + '/goal', v => { if (v) goal = v; renderLoot(); }),
       Net.on(R + '/lordShield', v => { lordShield = !!v; }),
-      Net.on(R + '/act', v => { acts = v || {}; }),
-      Net.on(R + '/votes', v => { votes = v || {}; if (meta && meta.phase === 'vote') renderNarration(); }),
+      Net.on(R + '/act', v => { acts = v || {}; renderPending(); }),
+      Net.on(R + '/votes', v => { votes = v || {}; if (meta && meta.phase === 'vote') renderNarration(); renderPending(); }),
       Net.on(R + '/chat', v => { allChats = v || {}; renderChatWatch(); }),
     );
     $('btn-skip').onclick = () => advance(true);
@@ -263,6 +263,30 @@ const Host = (() => {
   function allVotesDone() {
     const v = (votes && votes[meta.day]) || {};
     return alivePids().every(p => v[p] != null);
+  }
+  // เหมือน allNightDone/allVotesDone แต่คืนชื่อคนที่ยังไม่ตอบ ให้ครูช่วยเด็กที่งงได้ตรงจุด
+  function pendingNightPids() {
+    const n = meta.night, a = (acts && acts[n]) || {};
+    const pend = new Set();
+    aliveOf('enemy').forEach(p => { if ((a.enemyVotes || {})[p] == null) pend.add(p); });
+    if (meta.activeThief && alive[meta.activeThief] && (a.steal || {})[meta.activeThief] == null) pend.add(meta.activeThief);
+    aliveOf('doctor').forEach(p => { if ((a.protect || {})[p] == null) pend.add(p); });
+    aliveOf('noble').forEach(p => { if ((a.nobleInv || {})[p] == null) pend.add(p); });
+    aliveOf('spy').forEach(p => { if ((a.spyInv || {})[p] == null) pend.add(p); });
+    if (meta.giftNight) aliveOf('lord').forEach(p => { if ((a.gift || {})[p] == null) pend.add(p); });
+    return [...pend];
+  }
+  function pendingVotePids() {
+    const v = (votes && votes[meta.day]) || {};
+    return alivePids().filter(p => v[p] == null);
+  }
+  function renderPending() {
+    const el = $('h-pending');
+    if (!el || !meta) return;
+    if (meta.phase !== 'night' && meta.phase !== 'vote') { el.innerHTML = ''; return; }
+    const pend = meta.phase === 'night' ? pendingNightPids() : pendingVotePids();
+    if (!pend.length) { el.innerHTML = '<div class="pending-ok">✅ ทุกคนตอบครบแล้ว</div>'; return; }
+    el.innerHTML = `<div class="pending-wrap">⏳ รอ (${pend.length}): ${pend.map(p => esc(players[p] ? players[p].name : '?')).join(', ')}</div>`;
   }
 
   async function advance(manual) {
