@@ -221,6 +221,9 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
   border: 1px solid var(--line); background: rgba(0,0,0,0.4);
 }
 .phase-badge.sm { font-size: 1rem; padding: 4px 12px; }
+/* แจ้งเตือนแรงๆ ตอนถึงตาต้องกดอะไรสักอย่าง — เด็กเผลอวางมือถือจะได้สังเกตเห็น */
+.phase-badge.yourturn { animation: turnFlash 0.9s ease-in-out 4; border-color: var(--gold); box-shadow: 0 0 0 rgba(245,197,24,0); }
+@keyframes turnFlash { 0%,100% { box-shadow: 0 0 0 rgba(245,197,24,0); transform: scale(1) } 50% { box-shadow: 0 0 22px 6px rgba(245,197,24,0.6); transform: scale(1.06) } }
 .big-timer { font-size: 2rem; font-weight: 600; margin-left: auto; font-variant-numeric: tabular-nums; text-shadow: 0 0 18px rgba(245,197,24,0.4); }
 .big-timer.sm { font-size: 1.3rem; }
 .big-timer.urgent { color: #ff7070; animation: pulse 1s infinite; }
@@ -238,6 +241,10 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
 .loot-meter div { height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg, #a05a10, var(--orange), #ffd080); transition: width 0.8s; box-shadow: 0 0 12px rgba(242,140,40,0.6); }
 .alive-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
 .astat { font-size: 0.85rem; background: rgba(0,0,0,0.35); padding: 4px 10px; border-radius: 10px; border: 1px solid var(--line); }
+/* ครูเห็นชัดว่าใครยังไม่ตอบ — ช่วยเด็กที่งงได้ตรงจุดโดยไม่ต้องรอครบทุกคนเงียบๆ */
+.pending-wrap { font-size: 0.88rem; background: rgba(226,140,40,0.12); border: 1px solid var(--orange); border-radius: 10px; padding: 6px 12px; margin: 6px 0; animation: pendingPulse 2s ease-in-out infinite; }
+@keyframes pendingPulse { 0%, 100% { border-color: var(--orange) } 50% { border-color: rgba(226,140,40,0.4) } }
+.pending-ok { font-size: 0.88rem; color: var(--green); padding: 6px 0; }
 .event-log { max-height: 30dvh; overflow-y: auto; font-size: 0.85rem; font-weight: 300; display: flex; flex-direction: column-reverse; gap: 4px; }
 .event-log div { padding: 5px 9px; background: rgba(0,0,0,0.3); border-radius: 8px; border-left: 3px solid var(--gold-dim); animation: viewIn 0.4s; }
 
