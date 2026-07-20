@@ -8,7 +8,7 @@ const Host = (() => {
   let acts = null, votes = null, thiefTurns = {};
   let goal = 450, lordShield = false; // เป้าโจร (ตามขนาดห้อง) + องครักษ์เจ้าเมือง (ใช้ได้ 1 ครั้ง)
   let chatMsgs = {};
-  let busy = false, tickTimer = null, unsubs = [];
+  let busy = false, tickTimer = null, unsubs = [], gameBound = false;
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const alivePids = () => Object.keys(players).filter(p => alive[p]);
@@ -109,35 +109,22 @@ const Host = (() => {
     lordShield = true;
     await Net.update(R, { roles: rolesW, alive: aliveW, sak: sakW, loot: 0, thiefTurns: turnsW, goal, lordShield: true });
     await setPhase('reveal', 1, 1, meta0().night);
-    bindGame();
+    // ถ้าเคย bindGame() ไปแล้ว (กรณีนี้คือ "เริ่มเกม" ครั้งที่ 2+ หลังกลับมาห้องรอ) ห้ามผูก listener ซ้ำ — แค่สลับจอกลับ
+    if (gameBound) App.show('v-host'); else bindGame();
   }
 
-  // ---------------- เริ่มเกมใหม่หลังจบ (คนเดิม ไม่ต้องเข้าลิงก์ใหม่) ----------------
-  async function restart() {
+  // ---------------- จบเกมแล้วกลับไปหน้ารอผู้เล่น (คนเดิม ไม่ต้องเข้าลิงก์ใหม่) ----------------
+  // เดิม: เริ่มเกมใหม่ทันที (เขียนบทบาทใหม่ก่อนเปลี่ยน phase ออกจาก 'end') — ระหว่างนั้น renderBoard()
+  // ยังเห็น meta.phase==='end' อยู่ (แสดงบทบาททุกคนเป็นค่าปกติของหน้าจบเกม) เลยดันโชว์ "บทบาทใหม่" ที่เพิ่งสุ่มให้ทั้งห้องเห็นแวบหนึ่งก่อน phase จะขยับ
+  // แก้ด้วยการไม่สุ่ม/เขียนบทบาทใหม่ตรงนี้เลย — กลับไปหน้ารอผู้เล่นก่อน (เหมือนสร้างห้องครั้งแรก) แล้วให้ครูกดเริ่มเกมเองอีกที (ผ่าน start() เดิม ที่ไม่มีปัญหานี้เพราะ phase ตอนนั้นคือ 'lobby' ไม่ใช่ 'end')
+  async function restartToLobby() {
     LivingEnv.resume(); // กันค้าง pause ข้ามเกมถ้าเผื่อไว้
-    const pids = shuffle(Object.keys(players));
-    if (pids.length < MIN_PLAYERS) return;
-    const setup = roleSetup(pids.length);
-    const bag = [];
-    for (const r of ROLE_ORDER) for (let i = 0; i < (setup[r] || 0); i++) bag.push(r);
-    shuffle(bag);
-    const rolesW = {}, aliveW = {}, sakW = {}, turnsW = {};
-    pids.forEach((pid, i) => {
-      rolesW[pid] = bag[i];
-      aliveW[pid] = true;
-      sakW[pid] = ROLES[bag[i]].sakdina;
-      if (bag[i] === 'thief') turnsW[pid] = 0;
-    });
-    goal = thiefGoal(pids.length);
-    lordShield = true;
-    thiefTurns = turnsW; acts = {}; votes = {}; loot = 0;
-    // ล้างข้อมูลเกมก่อนหน้าทั้งหมด (null = ลบ path ทิ้งใน Firebase) ก่อนแจกบทบาทใหม่
     await Net.update(R, {
-      roles: rolesW, alive: aliveW, sak: sakW, loot: 0, thiefTurns: turnsW, goal, lordShield: true,
+      roles: null, alive: null, sak: null, loot: null, thiefTurns: null, goal: null, lordShield: null,
       votes: null, act: null, history: null, results: null, scores: null, winner: null, chat: null, private: null,
     });
     $('h-log').innerHTML = '';
-    await setPhase('reveal', 1, 1, meta0().night);
+    await Net.update(R + '/meta', { state: 'lobby', phase: 'lobby', night: 0, day: 0, phaseEnds: 0 });
   }
   function meta0() { return (meta && meta.settings) || { day: 5, night: 3 }; }
 
@@ -154,10 +141,23 @@ const Host = (() => {
 
   // ---------------- ผูกจอเกม ----------------
   function bindGame() {
+    gameBound = true;
     App.show('v-host');
     unsubs.push(
-      Net.on(R + '/players', v => { players = v || {}; renderBoard(); renderStats(); }),
-      Net.on(R + '/meta', v => { meta = v || {}; renderTop(); renderNarration(); renderPending(); }),
+      Net.on(R + '/players', v => { players = v || {}; renderBoard(); renderStats(); if (meta && meta.phase === 'lobby') renderLobby(); }),
+      Net.on(R + '/meta', v => {
+        meta = v || {};
+        // กลับมาห้องรอหลังจบเกม (restartToLobby) — ยังไม่มีบทบาทใหม่ตอนนี้ ปลอดภัยที่จะโชว์หน้ารอเหมือนตอนสร้างห้องครั้งแรก
+        // ผูกปุ่ม "เริ่มเกม" ใหม่ทุกครั้งที่เข้าโหมดนี้ — ถ้า session นี้เข้ามาผ่าน resume() ตอน state ไม่ใช่ lobby (เช่นครูรีเฟรชหน้าตอนจบเกม)
+        // bindLobby() จะไม่เคยถูกเรียกในเซสชันนี้เลย ปุ่มจะไม่มี onclick ผูกไว้ถ้าไม่ทำซ้ำตรงนี้
+        if (meta.phase === 'lobby') {
+          App.show('v-hostlobby'); renderLobby();
+          $('btn-start').onclick = start;
+          $('btn-close-room').onclick = async () => { if (confirm('ปิดห้องนี้?')) { await Net.remove(R); location.href = location.pathname; } };
+          return;
+        }
+        renderTop(); renderNarration(); renderPending();
+      }),
       Net.on(R + '/roles', v => { roles = v || {}; }),
       Net.on(R + '/alive', v => { alive = v || {}; renderBoard(); renderStats(); renderPending(); }),
       Net.on(R + '/sak', v => { sak = v || {}; renderBoard(); }),
@@ -270,7 +270,17 @@ const Host = (() => {
     const el = $('h-pending');
     if (!el || !meta) return;
     if (meta.phase !== 'night' && meta.phase !== 'vote') { el.innerHTML = ''; return; }
-    const pend = meta.phase === 'night' ? pendingNightPids() : pendingVotePids();
+    if (meta.phase === 'night') {
+      // ห้ามระบุชื่อตอนกลางคืน — รายชื่อคนกลางคืนดึงมาจาก "บทบาทที่มีหน้าที่กลางคืน" เท่านั้น
+      // ช่วงท้ายเกมที่เหลือบทบาทมีหน้าที่น้อยประเภท (เช่นเหลือแค่ศัตรู) การขึ้นชื่อ = เฉลยทีมทันทีโดยการตัดตัวเลือก
+      const n = pendingNightPids().length;
+      el.innerHTML = n
+        ? `<div class="pending-wrap">⏳ ยังเหลือ ${n} คนที่ยังไม่ได้ทำหน้าที่กลางคืน</div>`
+        : '<div class="pending-ok">✅ ทุกคนตอบครบแล้ว</div>';
+      return;
+    }
+    // เฟสโหวต: ทุกคนที่ยังไม่ตายต้องโหวตเหมือนกันหมด ไม่ผูกกับบทบาทลับ โชว์ชื่อได้ปลอดภัย
+    const pend = pendingVotePids();
     if (!pend.length) { el.innerHTML = '<div class="pending-ok">✅ ทุกคนตอบครบแล้ว</div>'; return; }
     el.innerHTML = `<div class="pending-wrap">⏳ รอ (${pend.length}): ${pend.map(p => esc(players[p] ? players[p].name : '?')).join(', ')}</div>`;
   }
@@ -556,9 +566,9 @@ const Host = (() => {
     log(`🏁 ${title} — ${text}`);
     $('h-narration').innerHTML = `<b style="color:var(--gold)">${title}</b><br>${text}<br><br>
       <button class="btn btn-gold w100" id="btn-summary">📜 สรุปเกม & คะแนน (ฉายให้นักเรียนดู)</button>
-      <button class="btn btn-blue w100" id="btn-restart">🔄 เริ่มเกมใหม่ (คนเดิม ไม่ต้องเข้าลิงก์ใหม่)</button>`;
+      <button class="btn btn-blue w100" id="btn-restart">🔄 เล่นใหม่ (กลับไปห้องรอ — คนเดิมไม่ต้องเข้าลิงก์ใหม่)</button>`;
     $('btn-summary').onclick = () => showSummary(scores, team, title);
-    $('btn-restart').onclick = () => { if (confirm('เริ่มเกมใหม่กับผู้เล่นชุดเดิม? ข้อมูลเกมที่แล้วจะถูกล้าง')) restart(); };
+    $('btn-restart').onclick = () => { if (confirm('กลับไปห้องรอเพื่อเริ่มเกมใหม่? ข้อมูลเกมที่แล้วจะถูกล้าง (เพิ่ม/ลบผู้เล่นได้ก่อนกดเริ่มเกมอีกครั้ง)')) restartToLobby(); };
     renderBoard(true);
     setTimeout(() => showSummary(scores, team, title), 1500);
     return true;
