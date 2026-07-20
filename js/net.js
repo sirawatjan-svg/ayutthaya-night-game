@@ -12,10 +12,16 @@ const Net = (() => {
   // ---------------- Firebase backend ----------------
   const fb = {
     db: null,
+    uid: null,
+    ready: null,
     init() {
       firebase.initializeApp(FIREBASE_CONFIG);
       this.db = firebase.database();
       this.db.ref('.info/serverTimeOffset').on('value', s => { timeOffset = s.val() || 0; });
+      // ล็อกอินนิรนามอัตโนมัติ — ให้แต่ละเครื่องมี uid คงที่ ใช้แยก "เครื่องครู" ออกจากเครื่องนักเรียนใน Security Rules
+      this.ready = firebase.auth().signInAnonymously()
+        .then(cred => { this.uid = cred.user.uid; })
+        .catch(err => { console.error('anon auth failed', err); this.uid = null; });
     },
     set: (p, v) => firebase.database().ref(p).set(v),
     update: (p, o) => firebase.database().ref(p).update(o),
@@ -29,6 +35,8 @@ const Net = (() => {
     },
     onDisconnectSet: (p, v) => firebase.database().ref(p).onDisconnect().set(v),
   };
+
+  const LOCAL_UID_KEY = 'ayn-local-uid';
 
   // ---------------- Local backend (ทดสอบหลายแท็บในเครื่องเดียว) ----------------
   const LS_KEY = 'ayn-localdb';
@@ -55,10 +63,14 @@ const Net = (() => {
       if (v === null) delete cur[ks[ks.length - 1]];
       else cur[ks[ks.length - 1]] = v;
     },
+    uid: null,
     init() {
       this.bc = ('BroadcastChannel' in window) ? new BroadcastChannel('ayn-game') : null;
       if (this.bc) this.bc.onmessage = (e) => this.notify(e.data.path);
       window.addEventListener('storage', (e) => { if (e.key === LS_KEY) this.notify(''); });
+      // โหมดทดสอบไม่มี Firebase Auth จริง — จำลอง uid คงที่ต่อเครื่อง/แท็บ (ไม่มี Security Rules มาบังคับใช้อยู่แล้ว)
+      this.uid = localStorage.getItem(LOCAL_UID_KEY);
+      if (!this.uid) { this.uid = 'local-' + Math.random().toString(36).slice(2, 10); localStorage.setItem(LOCAL_UID_KEY, this.uid); }
     },
     broadcast(path) {
       if (this.bc) this.bc.postMessage({ path });
@@ -99,6 +111,8 @@ const Net = (() => {
   return {
     isLocal,
     init() { be.init(); },
+    uid: () => be.uid,
+    ready: () => be.ready || Promise.resolve(),
     set: (p, v) => be.set(p, v),
     update: (p, o) => be.update(p, o),
     remove: (p) => be.remove(p),
