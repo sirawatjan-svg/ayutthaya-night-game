@@ -217,13 +217,30 @@ const Player = (() => {
       </div>`);
       Sound.whoosh();
       setTimeout(() => {
+        // การ์ดเปิดวาบเดียว: กด "รับชะตา" → พลิกการ์ด → โชว์แค่ชื่อ+สัญลักษณ์อาชีพสั้นๆ ~1 วิ → เลือนหายเอง
+        // (รายละเอียดเต็ม/เพื่อนร่วมทีมยังดูซ้ำได้เสมอผ่านกดค้างที่แถบด้านบน — peekCardHtml)
         App.modal(`<div class="reveal-wrap"><div class="reveal-card" id="rvcard" style="--tint:${r.color}">
-          <div class="rc-face rc-back"><div class="orn">๑๙๑</div><h2 style="color:var(--gold)">ชะตาของเจ้า</h2><p>แตะการ์ดเพื่อเปิดดูบทบาทลับ<br>อย่าให้ใครเห็นหน้าจอ!</p></div>
-          <div class="rc-face rc-front ${r.portrait ? 'has-portrait' : ''}" style="--tint:${r.color}">
-            ${rcFrontInner(r)}
-          </div></div></div>${teammatesHtml()}<button class="btn btn-gold w100" onclick="App.closeModal()">รับชะตา</button>`);
+          <div class="rc-face rc-back"><div class="orn">๑๙๑</div><h2 style="color:var(--gold)">ชะตาของเจ้า</h2><p>กดปุ่มด้านล่างเพื่อรับชะตา<br>อย่าให้ใครเห็นหน้าจอ!</p></div>
+          <div class="rc-face rc-front brief" style="--tint:${r.color}">
+            <div class="medal">${Art.roleMedallion(r.id, 120)}</div><h2>${r.name}</h2>
+          </div></div></div><button class="btn btn-gold w100" id="rv-accept">รับชะตา</button>`);
         const c = document.getElementById('rvcard');
-        c.onclick = () => { c.classList.add('flip'); Sound.whoosh(); };
+        const reveal = () => {
+          if (c.classList.contains('flip')) return;
+          c.classList.add('flip');
+          Sound.whoosh();
+          const btn = document.getElementById('rv-accept');
+          if (btn) btn.remove();
+          setTimeout(() => {
+            setTimeout(() => {
+              const wrap = document.querySelector('.reveal-wrap');
+              if (wrap) { wrap.style.transition = 'opacity 0.4s ease'; wrap.style.opacity = '0'; }
+              setTimeout(() => App.closeModal(), 400);
+            }, 1100);
+          }, 1100);
+        };
+        c.onclick = reveal;
+        document.getElementById('rv-accept').onclick = reveal;
       }, 1100);
     } else {
       App.modal(roleCardHtml(r) + '<button class="btn btn-ghost w100" onclick="App.closeModal()">ปิด</button>');
