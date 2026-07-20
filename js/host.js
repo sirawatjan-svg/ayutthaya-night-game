@@ -17,11 +17,12 @@ const Host = (() => {
 
   // ---------------- สร้างห้อง ----------------
   async function create(hostName, dayMin, nightMin) {
+    await Net.ready(); // รอเข้าสู่ระบบนิรนามก่อน — ต้องมี uid ติดไปกับห้องเพื่อให้ Security Rules รู้ว่าเครื่องนี้คือครู
     code = String(Math.floor(100000 + Math.random() * 900000));
     R = 'rooms/' + code;
     await Net.set(R, {
       meta: {
-        hostName, createdAt: Net.now(), state: 'lobby', phase: 'lobby',
+        hostName, hostUid: Net.uid(), createdAt: Net.now(), state: 'lobby', phase: 'lobby',
         settings: { day: dayMin, night: nightMin }, night: 0, day: 0,
       },
     });
