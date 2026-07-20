@@ -634,8 +634,16 @@ const Player = (() => {
     const text = presetText || inp.value.trim();
     if (!text) return;
     if (!alive[pid] && meta && meta.phase !== 'lobby' && meta.phase !== 'end' && myRole) { App.toast('วิญญาณส่งเสียงไม่ได้...'); return; }
-    if (!presetText) inp.value = '';
-    await Net.push(`${R}/chat/${chatCh}`, { pid, name: (me && me.name) || '?', text, ts: Net.now() });
+    // เดิม: เคลียร์กล่องพิมพ์ก่อน await เสมอ ไม่มี try/catch — ถ้า push พลาดไม่ว่าเหตุผลอะไร
+    // ข้อความจะหายเงียบๆ ไม่มีอะไรแจ้งผู้เล่นเลย (ดูเหมือน "แชทไม่ทำงาน" ทั้งที่จริงคือส่งพลาดแค่ครั้งเดียว)
+    try {
+      await Net.ready();
+      await Net.push(`${R}/chat/${chatCh}`, { pid, name: (me && me.name) || '?', text, ts: Net.now() });
+      if (!presetText) inp.value = '';
+    } catch (e) {
+      console.error('ส่งแชทพลาด', e);
+      App.toast('⚠️ ส่งข้อความไม่สำเร็จ ลองใหม่อีกครั้ง');
+    }
   }
 
   // กลับเข้าเกมเดิมหลังรีเฟรชหน้า
