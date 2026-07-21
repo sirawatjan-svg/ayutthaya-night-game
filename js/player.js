@@ -64,7 +64,7 @@ const Player = (() => {
       Net.on(R + '/winner', v => { if (v) showEnd(v); }),
       Net.on(R + '/private/' + pid, v => { onInbox(v); }),
       Net.on(R + '/goal', v => { if (v) goalP = v; }),
-      Net.on(R + '/results', v => { results = v || {}; }),
+      Net.on(R + '/results', v => { results = v || {}; render(); }),
       Net.on(R + '/votes', v => { votesAll = v || {}; updateVoteLive(); }),
     );
     if (tickTimer) clearInterval(tickTimer);
@@ -101,7 +101,7 @@ const Player = (() => {
     $('p-phase').textContent = t;
     renderSak();
     renderRoleStrip();
-    const key = meta.phase + ':' + meta.night + ':' + meta.day + ':' + (alive[pid] ? 1 : 0) + ':' + (myRole || '') + ':' + (meta.activeThief || '');
+    const key = meta.phase + ':' + meta.night + ':' + meta.day + ':' + (alive[pid] ? 1 : 0) + ':' + (myRole || '');
     if (key !== lastPhaseKey) {
       lastPhaseKey = key; submitted = {}; renderMain();
       // แจ้งเตือนแรงๆ ตอนถึงตาต้องทำอะไร (เสียง+สั่น+เรืองแสง) — ช่วยเด็กที่เผลอวางมือถือ ไม่ต้องมานั่งเดา
@@ -115,7 +115,7 @@ const Player = (() => {
   }
   function hasNightAction() {
     if (!myRole || myRole === 'mad' || myRole === 'slave' || myRole === 'serf') return false;
-    if (myRole === 'thief') return meta.activeThief === pid;
+    if (myRole === 'thief') return true; // โจรทุกคนที่ยังไม่ตายมีแอ็กชันทุกคืน (เดิม: เฉพาะคนที่ถูกสุ่ม)
     if (myRole === 'lord') return !!meta.giftNight;
     return true; // enemy, doctor, noble, spy — มีแอ็กชันทุกคืนที่ยังไม่ตาย
   }
@@ -308,7 +308,11 @@ const Player = (() => {
             ${res.stealTotal ? `<span class="mchip warn">🪙 โจรปล้นได้ ${res.stealTotal} ไร่</span>` : ''}
             ${res.gifted ? '<span class="mchip">👑 เจ้าเมืองแจกศักดินา</span>' : ''}
           </div>` : '';
-        el.innerHTML = `<div class="action-panel">${chips}
+        // แพทย์ตายคืนนี้ = เปิดโปงศัตรูที่ฆ่าให้ทุกคนเห็นเลย (ไม่ต้องรอส่วนตัว)
+        const doctorReveal = res && res.doctorReveal && players[res.doctorReveal.killer]
+          ? `<div class="trivia" style="border-color:var(--red)"><b style="color:var(--red)">⚕️🔍 แพทย์เปิดโปงก่อนสิ้นใจ:</b> <b style="color:var(--red)">${esc(players[res.doctorReveal.killer].name)}</b> คือศัตรู!</div>`
+          : '';
+        el.innerHTML = `<div class="action-panel">${chips}${doctorReveal}
           <div class="action-title">☀️ วันที่ ${meta.day} ณ ${loc.name}</div>
           <div class="action-sub">${loc.hook}</div>
           <div class="trivia" style="margin:8px 0"><b>💡 รู้หรือไม่?</b> ${loc.fact}</div>
@@ -390,17 +394,15 @@ const Player = (() => {
         break;
       }
       case 'thief': {
-        if (meta.activeThief === pid) {
-          actionUI(el, {
-            title: `🏴 คืนนี้เจ้าถูกสุ่มให้ลงมือ! เลือก ${STEAL_TARGETS} คนเพื่อขโมยศักดินา`,
-            sub: `ปล้นได้คนละ 25 ไร่ (ถ้าเหยื่อไม่มีศักดินา ได้ 0) — แก๊งสะสมครบ ${goalP} ไร่ = ชนะ`,
-            max: STEAL_TARGETS, excludeRoles: ['thief'], skippable: true,
-            submit: (v) => submitAct('steal', (v === '-' || !v.length) ? '-' : v, 'ลงมือปล้นแล้ว รอผลตอนเช้ามืด'),
-          });
-        } else {
-          const anm = meta.activeThief && players[meta.activeThief] ? players[meta.activeThief].name : '…';
-          doneWrap(`คืนนี้แก๊งสุ่มให้ <b style="color:var(--orange)">${esc(anm)}</b> เป็นผู้ลงมือ<br>คุยวางแผนกันในแชทช่อง "แก๊งโจร"`);
-        }
+        // โจรทุกคนที่ยังไม่ตายลงมือพร้อมกันทุกคืน (เดิม: สุ่ม 1 คนต่อคืน) — จำนวนเป้า/คนลดลงถ้ามีโจรพร้อมกันเยอะ กันปล้นรวมกันโหดเกิน
+        const aliveThieves = Object.keys(roles).filter(p => roles[p] === 'thief' && alive[p]).length;
+        const cap = perThiefTargets(aliveThieves || 1);
+        actionUI(el, {
+          title: `🏴 เลือก ${cap} คนเพื่อขโมยศักดินา`,
+          sub: `ปล้นได้คนละ 25 ไร่ (ถ้าเหยื่อไม่มีศักดินา ได้ 0) — คุยวางแผนกับพวกเดียวกันในแชทช่อง "แก๊งโจร" กันเลือกซ้ำเป้ากันเอง — แก๊งสะสมครบ ${goalP} ไร่ = ชนะ`,
+          max: cap, excludeRoles: ['thief'], skippable: true,
+          submit: (v) => submitAct('steal', (v === '-' || !v.length) ? '-' : v, 'ลงมือปล้นแล้ว รอผลตอนเช้ามืด'),
+        });
         break;
       }
       case 'doctor':
