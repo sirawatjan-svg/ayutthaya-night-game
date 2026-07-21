@@ -521,7 +521,8 @@ const Host = (() => {
     for (const nb of aliveOf('noble')) {
       const t = a.nobleInv && a.nobleInv[nb];
       if (t && t !== '-') {
-        const yes = roles[t] === 'thief';
+        // คนบ้าโดนตรวจแล้วผลลวงว่าเป็นโจรเสมอ — เพิ่มโอกาสถูกสงสัย/โหวตออก (แต่ยังไม่ใช่โจรจริง — ถ้าขุนนางเชื่อแล้วเอาไปประหาร จะชี้ผิดตามปกติ)
+        const yes = roles[t] === 'thief' || roles[t] === 'mad';
         hist.invNoble.push({ noble: nb, target: t, yes });
         inbox.push({ pid: nb, text: `ผลสืบสวนคืนที่ ${n}: ${players[t].name} ${yes ? '⚠️ เป็นโจร!' : '✔ ไม่ใช่โจร'}` });
         pub.investigations.push({ type: 'noble', target: t, yes });
@@ -530,7 +531,8 @@ const Host = (() => {
     for (const sp of aliveOf('spy')) {
       const t = a.spyInv && a.spyInv[sp];
       if (t && t !== '-') {
-        const yes = roles[t] === 'enemy';
+        // คนบ้าโดนตรวจแล้วผลลวงว่าเป็นศัตรูเสมอ เช่นเดียวกับข้างบน
+        const yes = roles[t] === 'enemy' || roles[t] === 'mad';
         hist.invSpy.push({ spy: sp, target: t, yes });
         inbox.push({ pid: sp, text: `ผลสืบสวนคืนที่ ${n}: ${players[t].name} ${yes ? '⚠️ เป็นศัตรู!' : '✔ ไม่ใช่ศัตรู'}` });
         pub.investigations.push({ type: 'spy', target: t, yes });
