@@ -7,6 +7,7 @@ const Host = (() => {
   let meta = null, players = {}, roles = {}, alive = {}, sak = {}, loot = 0;
   let acts = null, votes = null, thiefTurns = {};
   let goal = 450, lordShield = false; // เป้าโจร (ตามขนาดห้อง) + องครักษ์เจ้าเมือง (ใช้ได้ 1 ครั้ง)
+  let madReflect = false; // คนบ้าสะท้อนการลอบสังหารกลับใส่ศัตรูได้ 1 ครั้งต่อเกม (true = ยังใช้ได้)
   let chatMsgs = {};
   let busy = false, tickTimer = null, unsubs = [], gameBound = false;
   const $ = (id) => document.getElementById(id);
@@ -106,8 +107,8 @@ const Host = (() => {
       if (bag[i] === 'thief') turnsW[pid] = 0;
     });
     goal = thiefGoal(pids.length);
-    lordShield = true;
-    await Net.update(R, { roles: rolesW, alive: aliveW, sak: sakW, loot: 0, thiefTurns: turnsW, goal, lordShield: true });
+    lordShield = true; madReflect = true;
+    await Net.update(R, { roles: rolesW, alive: aliveW, sak: sakW, loot: 0, thiefTurns: turnsW, goal, lordShield: true, madReflect: true });
     await setPhase('reveal', 1, 1, meta0().night);
     // ถ้าเคย bindGame() ไปแล้ว (กรณีนี้คือ "เริ่มเกม" ครั้งที่ 2+ หลังกลับมาห้องรอ) ห้ามผูก listener ซ้ำ — แค่สลับจอกลับ
     if (gameBound) App.show('v-host'); else bindGame();
@@ -120,7 +121,7 @@ const Host = (() => {
   async function restartToLobby() {
     LivingEnv.resume(); // กันค้าง pause ข้ามเกมถ้าเผื่อไว้
     await Net.update(R, {
-      roles: null, alive: null, sak: null, loot: null, thiefTurns: null, goal: null, lordShield: null,
+      roles: null, alive: null, sak: null, loot: null, thiefTurns: null, goal: null, lordShield: null, madReflect: null,
       votes: null, act: null, history: null, results: null, scores: null, winner: null, chat: null, private: null,
     });
     $('h-log').innerHTML = '';
@@ -165,6 +166,7 @@ const Host = (() => {
       Net.on(R + '/thiefTurns', v => { thiefTurns = v || {}; }),
       Net.on(R + '/goal', v => { if (v) goal = v; renderLoot(); }),
       Net.on(R + '/lordShield', v => { lordShield = !!v; }),
+      Net.on(R + '/madReflect', v => { madReflect = !!v; }),
       Net.on(R + '/act', v => { acts = v || {}; renderPending(); }),
       Net.on(R + '/votes', v => { votes = v || {}; if (meta && meta.phase === 'vote') { renderNarration(); renderBoard(); } renderPending(); }),
       Net.on(R + '/chat/all', v => { chatMsgs = v || {}; renderChatWatch(); }),
@@ -239,7 +241,7 @@ const Host = (() => {
     const n = meta.night, a = (acts && acts[n]) || {};
     const need = [];
     aliveOf('enemy').forEach(p => need.push(((a.enemyVotes || {})[p]) != null));
-    if (meta.activeThief && alive[meta.activeThief]) need.push(((a.steal || {})[meta.activeThief]) != null);
+    aliveOf('thief').forEach(p => need.push(((a.steal || {})[p]) != null));
     aliveOf('doctor').forEach(p => need.push(((a.protect || {})[p]) != null));
     aliveOf('noble').forEach(p => need.push(((a.nobleInv || {})[p]) != null));
     aliveOf('spy').forEach(p => need.push(((a.spyInv || {})[p]) != null));
@@ -255,7 +257,7 @@ const Host = (() => {
     const n = meta.night, a = (acts && acts[n]) || {};
     const pend = new Set();
     aliveOf('enemy').forEach(p => { if ((a.enemyVotes || {})[p] == null) pend.add(p); });
-    if (meta.activeThief && alive[meta.activeThief] && (a.steal || {})[meta.activeThief] == null) pend.add(meta.activeThief);
+    aliveOf('thief').forEach(p => { if ((a.steal || {})[p] == null) pend.add(p); });
     aliveOf('doctor').forEach(p => { if ((a.protect || {})[p] == null) pend.add(p); });
     aliveOf('noble').forEach(p => { if ((a.nobleInv || {})[p] == null) pend.add(p); });
     aliveOf('spy').forEach(p => { if ((a.spyInv || {})[p] == null) pend.add(p); });
@@ -353,18 +355,10 @@ const Host = (() => {
 
   // ---------------- กลางคืน ----------------
   async function toNight(n) {
-    // สุ่มโจรผู้ลงมือ: คนที่ได้ลงมือน้อยครั้งสุดได้สิทธิ์ก่อน
-    const th = aliveOf('thief');
-    let active = null;
-    if (th.length) {
-      const min = Math.min(...th.map(p => thiefTurns[p] || 0));
-      active = shuffle(th.filter(p => (thiefTurns[p] || 0) === min))[0];
-      thiefTurns[active] = (thiefTurns[active] || 0) + 1;
-      await Net.set(R + '/thiefTurns/' + active, thiefTurns[active]);
-    }
+    // โจรทุกคนที่ยังไม่ตายลงมือพร้อมกันทุกคืน (เดิม: สุ่ม 1 คนต่อคืน — เจอปัญหาโจรบางคนไม่เคยได้คิวเลยถ้าตายก่อน)
     await setPhase('nightfx', n, meta.day, 0);
     await FX.play('night', { night: n, npc: npcLine('night', n) });
-    await setPhase('night', n, meta.day, meta0().night, { activeThief: active || null });
+    await setPhase('night', n, meta.day, meta0().night);
     log(`🌙 คืนที่ ${n} เริ่มขึ้น — ทุกบทบาทลงมือในความมืด`);
     Sound.music('night');
   }
@@ -396,13 +390,19 @@ const Host = (() => {
       }
     }
 
-    // 2) โจรลงมือ (เฉพาะโจรที่ถูกสุ่ม)
-    const th = meta.activeThief;
-    if (th && alive[th]) {
-      const targets = (Array.isArray(a.steal && a.steal[th]) ? a.steal[th] : []).slice(0, STEAL_TARGETS);
+    // 2) โจรทุกคนที่ยังไม่ตายลงมือพร้อมกัน (เดิม: สุ่ม 1 คนต่อคืน) — จำกัดเป้า/คนตามจำนวนโจรที่เหลือ กันปล้นรวมกันโหดเกิน
+    //    กันซ้ำเป้ากันเอง: คนที่ถูกโจรอีกคนเลือกไปแล้วในคืนนี้ ไม่นับให้คนถัดไปอีก (เรียงตาม pid คงที่ ไม่สุ่มลำดับ กันไม่แฟร์)
+    const thieves = aliveOf('thief');
+    const perCap = perThiefTargets(thieves.length);
+    const usedTonight = new Set();
+    let stealTotalAll = 0;
+    for (const th of thieves.sort()) {
+      const raw = Array.isArray(a.steal && a.steal[th]) ? a.steal[th] : [];
+      const targets = raw.filter(t => t !== th && !usedTonight.has(t)).slice(0, perCap);
       let got = 0, lines = [];
       for (const t of targets) {
-        if (!alive[t] || t === th) continue;
+        if (!alive[t]) continue;
+        usedTonight.add(t);
         const amt = Math.min(STEAL_PER_TARGET, Math.max(0, sak[t] || 0));
         sak[t] = (sak[t] || 0) - amt;
         sak[th] = (sak[th] || 0) + amt;
@@ -411,11 +411,14 @@ const Host = (() => {
         lines.push(`${players[t].name}: ได้ ${amt} ไร่${amt === 0 ? ' (คนผู้นี้ไม่มีศักดินา!)' : ''}`);
         if ((sak[t] || 0) <= 0 && roles[t] !== 'enemy') deaths.set(t, 'bankrupt');
       }
-      loot += got; pub.stealTotal = got;
-      if (targets.length) {
-        inbox.push({ pid: th, text: `ผลการปล้นคืนนี้ — ${lines.join(' / ')} รวม ${got} ไร่` });
-        ev.push({ type: 'steal', text: `ศักดินาราษฎรถูกปล้นไป ${got} ไร่ในความมืด...` });
+      loot += got; stealTotalAll += got;
+      if (raw.length) {
+        inbox.push({ pid: th, text: `ผลการปล้นคืนนี้ — ${lines.length ? lines.join(' / ') : 'เป้าถูกโจรคนอื่นชิงไปแล้ว'} รวม ${got} ไร่` });
       }
+    }
+    pub.stealTotal = stealTotalAll;
+    if (stealTotalAll > 0 || thieves.some(th => (a.steal || {})[th])) {
+      ev.push({ type: 'steal', text: `ศักดินาราษฎรถูกปล้นไป ${stealTotalAll} ไร่ในความมืด...` });
     }
 
     // 3) ขุนนางประหาร (ทุกคืนที่ 4)
@@ -438,16 +441,36 @@ const Host = (() => {
     }
 
     // 4) ศัตรูโหวตสังหาร
-    const evotes = {};
+    const evotes = {}, targetVoters = {};
     for (const en of aliveOf('enemy')) {
       const arr = Array.isArray(a.enemyVotes && a.enemyVotes[en]) ? a.enemyVotes[en] : [];
       if (arr.length) hist.enemyVotes[en] = arr;
-      arr.forEach(t => { if (alive[t] && roles[t] !== 'enemy') evotes[t] = (evotes[t] || 0) + 1; });
+      arr.forEach(t => {
+        if (alive[t] && roles[t] !== 'enemy') {
+          evotes[t] = (evotes[t] || 0) + 1;
+          (targetVoters[t] = targetVoters[t] || []).push(en);
+        }
+      });
     }
-    const kq = killQuota(n);
+    const kq = killQuota(alivePids().length - aliveOf('enemy').length); // แก้บั๊ก: เดิมส่งเลขคืนเข้าไปผิด ทำให้ห้องใหญ่ได้โควตาน้อยกว่าที่แจ้งผู้เล่นเสมอ
     const kranked = shuffle(Object.keys(evotes)).sort((x, y) => evotes[y] - evotes[x]);
     const killed = kranked.slice(0, kq);
-    killed.forEach(t => { if (!deaths.has(t)) deaths.set(t, 'kill'); });
+    let madReflected = false;
+    for (const t of killed) {
+      if (deaths.has(t)) continue;
+      // คนบ้าสะท้อนการลอบสังหารกลับ — ศัตรูที่ลงมือตายแทน 1 ครั้งต่อเกม (คนบ้ารอด ไม่มีใครรู้ว่าเพราะอะไร)
+      if (madReflect && roles[t] === 'mad' && (targetVoters[t] || []).length) {
+        const attacker = shuffle(targetVoters[t].slice())[0];
+        if (attacker && !deaths.has(attacker)) {
+          deaths.set(attacker, 'reflect');
+          madReflected = true; madReflect = false;
+          await Net.set(R + '/madReflect', false);
+          ev.push({ type: 'kill', text: 'ราตรีนี้มีเสียงกรีดร้องแปลกๆ ดังขึ้นแล้วเงียบหายไป...' });
+        }
+        continue;
+      }
+      deaths.set(t, 'kill');
+    }
 
     // 4.5) องครักษ์เจ้าเมือง: รับดาบแทนการลอบสังหารได้ 1 ครั้งต่อเกม
     const lordPid = aliveOf('lord')[0];
@@ -480,6 +503,16 @@ const Host = (() => {
     for (const [pid, cause] of deaths) {
       alive[pid] = false;
       pub.deaths.push({ pid, role: roles[pid], cause });
+    }
+
+    // 6.5) แพทย์ตาย = เปิดโปงศัตรูที่ฆ่าทันที (ประกาศให้ทุกคนรู้ ไม่ใช่แค่เฉพาะคนเดียว) — เฉพาะตายจริง ไม่ใช่ถูกกันไว้แล้ว
+    for (const [pid, cause] of deaths) {
+      if (cause === 'kill' && roles[pid] === 'doctor' && (targetVoters[pid] || []).length) {
+        const killer = shuffle(targetVoters[pid].slice())[0];
+        pub.doctorReveal = { doctor: pid, killer };
+        log(`⚕️🔍 แพทย์ ${players[pid].name} สิ้นชีพ! ก่อนดับใจได้ชี้ตัวผู้ลงมือ — <b style="color:var(--red)">${players[killer].name}</b> คือศัตรู!`);
+        break; // เผื่อมีแพทย์หลายคนตายพร้อมกัน เปิดโปงคนเดียวพอกันสับสน
+      }
     }
 
     // 7) การสืบสวน (ส่งผลลับ)
