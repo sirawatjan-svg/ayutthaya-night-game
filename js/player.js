@@ -82,10 +82,10 @@ const Player = (() => {
     inboxMsgs = entries.map(([, m]) => m);
     if (firstInbox) { firstInbox = false; render(); return; }
     for (const [, m] of fresh) {
-      const yes = m.text.includes('⚠️');
-      if (m.text.includes('ผลสืบสวน')) {
-        FX.play('investigate', { title: 'ข่าวลับถึงเจ้า', name: '', yes, text: m.text });
-      } else { App.toast('📜 ' + m.text); Sound.chime(); }
+      // ผลสืบสวน: ผู้เล่นเห็นเอฟเฟกต์ไปแล้วทันทีตอนเลือกเป้า (submitInvestigate) — ข้อความลับนี้มาถึงไวมาก
+      // (เขียนก่อนคัตซีนเงาของครูจะเล่นด้วยซ้ำ) ถ้าเด้งเอฟเฟกต์ซ้ำอีกจะรู้สึกไวเกินและชนจังหวะคัตซีน — เก็บลงประวัติเงียบๆ พอ
+      if (m.text.includes('ผลสืบสวน')) continue;
+      App.toast('📜 ' + m.text); Sound.chime();
     }
     render();
   }
