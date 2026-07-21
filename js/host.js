@@ -550,6 +550,13 @@ const Host = (() => {
     // คัตซีนเงาสั้นๆ (ไร้ชื่อ สร้างอารมณ์) → ปิดท้ายด้วย "รายงานยามเช้า" ใบเดียวอ่านง่าย
     // หยุดเหตุการณ์แวดล้อมชั่วคราวระหว่างคัตซีน (ประหยัดแบต แม้จะถูกคัตซีนบังอยู่แล้วก็ตาม)
     LivingEnv.pause();
+    // ผลสืบสวนเมื่อคืน — โชว์เป็นอนิเมชั่นให้ทุกคนเห็นก่อนคัตซีนอื่นๆ (กันพลาดถ้าไม่ทันอ่านตัวหนังสือ) สั้นๆ ต่อรายการ
+    for (const iv of pub.investigations) {
+      const tName = players[iv.target] ? players[iv.target].name : '?';
+      const title = iv.type === 'noble' ? '⚖️ ขุนนางสืบพบ' : '🕵️ จารชนสืบพบ';
+      const verdict = iv.type === 'noble' ? (iv.yes ? 'เป็นโจร!' : 'ไม่ใช่โจร') : (iv.yes ? 'เป็นศัตรู!' : 'ไม่ใช่ศัตรู');
+      await FX.play('investigateReveal', { title, name: tName, yes: iv.yes, text: (iv.yes ? '⚠️ ' : '✔ ') + verdict });
+    }
     if (pub.gifted) await FX.play('cutGift');
     if (pub.stealCount) await FX.play('cutSteal');
     if (pub.exec.length) await FX.play('cutExec');
