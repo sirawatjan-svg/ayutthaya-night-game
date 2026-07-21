@@ -5,7 +5,7 @@
 const Player = (() => {
   let code = null, R = null, pid = null, me = null;
   let meta = null, players = {}, roles = {}, alive = {}, sak = {};
-  let goalP = 450, results = {}, votesAll = {};
+  let goalP = 450, results = {}, votesAll = {}, fullHistory = {};
   let myRole = null, revealShown = false, lastPhaseKey = '', prevMetaPhase = null;
   let inboxKeys = new Set(), inboxMsgs = [], firstInbox = true;
   let chatCh = 'all', chatUnsub = null, chatOpen = false, unread = 0, chatCount = {};
@@ -64,6 +64,7 @@ const Player = (() => {
       Net.on(R + '/winner', v => { if (v) showEnd(v); }),
       Net.on(R + '/private/' + pid, v => { onInbox(v); }),
       Net.on(R + '/goal', v => { if (v) goalP = v; }),
+      Net.on(R + '/history', v => { fullHistory = v || {}; }), // ใช้สร้างประวัติการรักษาของแพทย์ย้อนหลัง
       // เรียก renderMain() ตรงๆ ไม่ใช่ render() — render() มี dedup gate (key ผูกกับ phase/night/day/alive/role เท่านั้น)
       // ถ้า results มาถึงหลัง render() รอบแรกไปแล้วโดย phase ไม่เปลี่ยน จะโดนกันไม่ให้ renderMain() รันซ้ำ ทำให้สรุปเช้า/ผลสืบสวนไม่โผล่เลย
       Net.on(R + '/results', v => { results = v || {}; if (meta && meta.phase === 'day') renderMain(); }),
@@ -301,6 +302,21 @@ const Player = (() => {
       <div class="p-board" style="max-height:50dvh;overflow-y:auto;display:block">${rows.length ? rows.join('') : '<p class="p-note">ยังไม่มีผลสืบสวน</p>'}</div>
       <button class="btn btn-ghost w100" onclick="App.closeModal()">ปิด</button>`);
   }
+  // ---------------- ประวัติการรักษาของแพทย์ (ลับเฉพาะตัวเอง — อาชีพจริงของทุกคนที่เคยรักษา) ----------------
+  function showHealHistory() {
+    const nights = Object.keys(fullHistory).map(Number).sort((a, b) => a - b);
+    const rows = [];
+    nights.forEach(n => {
+      const t = fullHistory[n] && fullHistory[n].protects && fullHistory[n].protects[pid];
+      if (!t || !players[t]) return;
+      const r = ROLES[roles[t]];
+      if (!r) return;
+      rows.push(`<div class="cmsg"><b style="color:var(--gold-dim)">คืนที่ ${n}</b> — รักษา <b>${esc(players[t].name)}</b>: <b style="color:${r.color}">${r.name}</b></div>`);
+    });
+    App.modal(`<h2 class="panel-title sm">💊 ประวัติการรักษาทั้งหมด</h2>
+      <div class="p-board" style="max-height:50dvh;overflow-y:auto;display:block">${rows.length ? rows.join('') : '<p class="p-note">ยังไม่เคยรักษาใครเลย</p>'}</div>
+      <button class="btn btn-ghost w100" onclick="App.closeModal()">ปิด</button>`);
+  }
 
   function renderMain() {
     const el = $('p-main');
@@ -341,14 +357,19 @@ const Player = (() => {
           : '';
         // ผลสืบสวนคืนนี้ — ประกาศให้ทุกคนรู้ (ไม่บอกว่าใครเป็นผู้สืบ แค่บอกประเภทอาชีพ+เป้า+ผล)
         const invPublic = publicInvestigationHtml(res);
+        const healHistBtn = myRole === 'doctor'
+          ? '<button class="btn btn-ghost w100 btn-sm" id="btn-heal-history" style="margin:6px 0">💊 ดูประวัติการรักษาทั้งหมด</button>' : '';
         el.innerHTML = `<div class="action-panel">${chips}${doctorReveal}${invPublic}
           <div class="action-title">☀️ วันที่ ${meta.day} ณ ${loc.name}</div>
           <div class="action-sub">${loc.hook}</div>
           <div class="trivia" style="margin:8px 0"><b>💡 รู้หรือไม่?</b> ${loc.fact}</div>
           <button class="btn btn-ghost w100 btn-sm" id="btn-inv-history" style="margin:6px 0">📜 ดูประวัติการสืบสวนทั้งหมด</button>
+          ${healHistBtn}
           <div class="action-sub" style="color:var(--gold)">สนทนากับเพื่อนในแชท หาตัวผู้ต้องสงสัย ก่อนถึงเวลาลงมติ!</div></div>${inboxPanel()}`;
         const ihBtn = $('btn-inv-history');
         if (ihBtn) ihBtn.onclick = showInvestigationHistory;
+        const hhBtn = $('btn-heal-history');
+        if (hhBtn) hhBtn.onclick = showHealHistory;
         break;
       }
       case 'vote': renderVote(el); break;
@@ -453,10 +474,20 @@ const Player = (() => {
       }
       case 'doctor':
         actionUI(el, {
-          title: '🩺 เลือก 1 คนที่ต้องการรักษาคืนนี้',
-          sub: 'ต้องเดาเอง — ถ้าคนที่เลือกถูกกำจัดคืนนี้ เขาจะรอดชีวิต (เลือกตัวเองก็ได้)',
+          title: '🩺 เลือก 1 คนที่ต้องการรักษาคืนนี้ — จะรู้อาชีพจริงทันที!',
+          sub: 'ต้องเดาเอง — ถ้าคนที่เลือกถูกกำจัดคืนนี้ เขาจะรอดชีวิต (เลือกตัวเองก็ได้ แต่จะไม่มีเอฟเฟกต์วินิจฉัย เพราะรู้อาชีพตัวเองอยู่แล้ว)',
           max: 1, includeSelf: true, skippable: true,
-          submit: (v) => submitAct('protect', v === '-' ? '-' : v[0], 'จัดยาสมุนไพรเฝ้าคุ้มครองแล้ว'),
+          submit: async (v) => {
+            const t = v === '-' ? '-' : v[0];
+            await Net.set(`${R}/act/${n}/protect/${pid}`, t);
+            submitted.protect = true;
+            if (t !== '-' && t !== pid && roles[t] && ROLES[roles[t]]) {
+              const r = ROLES[roles[t]];
+              await FX.play('healReveal', { name: players[t].name, roleName: r.name, roleColor: r.color });
+            }
+            $('p-main').innerHTML = `<div class="done-note">✔ จัดยาสมุนไพรเฝ้าคุ้มครองแล้ว<br>รอรุ่งอรุณ...</div>${trivia()}${inboxPanel()}`;
+            Sound.chime();
+          },
         });
         break;
       case 'noble': {
@@ -470,7 +501,7 @@ const Player = (() => {
               const t = v === '-' ? '-' : v[0];
               await Net.set(`${R}/act/${n}/nobleInv/${pid}`, t);
               submitted.nobleInv = true;
-              await revealInvestigate(t, (x) => roles[x] === 'thief', '⚠️ เป็นโจร!', '✔ ไม่ใช่โจร');
+              await revealInvestigate(t, (x) => roles[x] === 'thief' || roles[x] === 'mad', '⚠️ เป็นโจร!', '✔ ไม่ใช่โจร');
               renderNightAction(el);
             },
           });
@@ -486,7 +517,7 @@ const Player = (() => {
             title: '⚖️ ตรวจสอบผู้ต้องสงสัย 1 คน (โจรหรือไม่) — รู้ผลทันที!',
             sub: `รู้ผลทันทีที่เลือก — อีก ${(4 - (n % 4)) % 4 || 4} คืนจะถึงคืนประหาร (ผลจะประกาศให้ทุกคนรู้ตอนเช้าด้วย แต่ไม่มีใครรู้ว่าเจ้าคือผู้สืบ)`,
             max: 1, skippable: true,
-            submit: (v) => submitInvestigate('nobleInv', v === '-' ? '-' : v[0], (x) => roles[x] === 'thief', '⚠️ เป็นโจร!', '✔ ไม่ใช่โจร'),
+            submit: (v) => submitInvestigate('nobleInv', v === '-' ? '-' : v[0], (x) => roles[x] === 'thief' || roles[x] === 'mad', '⚠️ เป็นโจร!', '✔ ไม่ใช่โจร'),
           });
         }
         break;
@@ -496,7 +527,7 @@ const Player = (() => {
           title: '🕵️ สืบหาศัตรู 1 คนอย่างลับๆ — รู้ผลทันที!',
           sub: 'รู้ผลทันทีที่เลือก — ผลจะประกาศให้ทุกคนรู้ตอนเช้าด้วย แต่ไม่มีใครรู้ว่าเจ้าคือจารชน',
           max: 1, skippable: true,
-          submit: (v) => submitInvestigate('spyInv', v === '-' ? '-' : v[0], (x) => roles[x] === 'enemy', '⚠️ เป็นศัตรู!', '✔ ไม่ใช่ศัตรู'),
+          submit: (v) => submitInvestigate('spyInv', v === '-' ? '-' : v[0], (x) => roles[x] === 'enemy' || roles[x] === 'mad', '⚠️ เป็นศัตรู!', '✔ ไม่ใช่ศัตรู'),
         });
         break;
       case 'lord': {
