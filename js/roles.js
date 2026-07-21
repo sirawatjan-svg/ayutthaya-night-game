@@ -77,13 +77,18 @@ function badgeColor(viewerRole, targetRole) {
 
 // ---------- การกระจายบทบาทอัตโนมัติตามจำนวนผู้เล่น (6–40 คน) ----------
 function roleSetup(n) {
+  const enemyCount = Math.max(1, Math.min(5, Math.round(n / 8)));
+  // จำนวนคนสืบ (จารชน+ขุนนางรวมกัน) ผูกกับจำนวนศัตรูโดยตรง — เดิมกระโดดที่ n>=24 เท่านั้น ทำให้ช่วง 20-23 คน
+  // มีคนสืบไม่พอเทียบศัตรู (2 vs 3) แก้ให้สเกลสม่ำเสมอตามภัยคุกคามจริงในห้องนั้น
+  const wantSpy = n >= 8 ? Math.max(1, Math.ceil(enemyCount / 2)) : 0;
+  const wantNoble = n >= 10 ? Math.max(1, Math.floor(enemyCount / 2)) : 0;
   const c = {
     lord: 1,
-    enemy: Math.max(1, Math.min(5, Math.round(n / 8))),
+    enemy: enemyCount,
     thief: Math.max(1, Math.min(5, Math.round(n / 8))),
     doctor: n >= 24 ? 2 : 1,
-    spy: n >= 24 ? 2 : (n >= 8 ? 1 : 0),
-    noble: n >= 24 ? 2 : (n >= 10 ? 1 : 0),
+    spy: wantSpy,
+    noble: wantNoble,
     mad: n >= 10 ? 1 : 0,
     slave: n >= 20 ? 2 : (n >= 12 ? 1 : 0),
   };
@@ -103,8 +108,15 @@ function killQuota(aliveOthers) {
   return Math.max(1, Math.min(4, Math.ceil((aliveOthers || 8) / 10)));
 }
 
-// เป้าศักดินาของแก๊งโจร — สเกลตามขนาดห้อง ให้มีลุ้นชนะจริงใน 4-6 คืน
-function thiefGoal(n) { return n >= 24 ? 600 : n >= 12 ? 450 : 300; }
+// เป้าศักดินาของแก๊งโจร — สเกลตามขนาดห้อง (คำนวณใหม่ 2026-07-20 คู่กับกลไก "โจรทุกคนลงมือพร้อมกันทุกคืน")
+function thiefGoal(n) { return n <= 11 ? 300 : n <= 19 ? 500 : n <= 27 ? 600 : 700; }
+
+// จำนวนเป้าที่โจรแต่ละคนขโมยได้ต่อคืน — ยิ่งมีโจรพร้อมกันเยอะ ยิ่งลดต่อคนกันปล้นรวมกันโหดเกิน
+function perThiefTargets(thievesCount) {
+  if (thievesCount <= 1) return 3;
+  if (thievesCount === 2) return 2;
+  return 1;
+}
 
 // จำนวนโหวตออกตอนเช้า
 function voteQuota(aliveCount) { return aliveCount > 10 ? 2 : 1; }
