@@ -304,17 +304,16 @@ const Player = (() => {
   }
   // ---------------- ประวัติการรักษาของแพทย์ (ลับเฉพาะตัวเอง — อาชีพจริงของทุกคนที่เคยรักษา) ----------------
   function showHealHistory() {
+    // แคบลงตามที่ user ปรับ (2026-07-20) — โชว์แค่คืนที่เจอศัตรูจากการรักษาเท่านั้น ไม่ใช่ทุกอาชีพที่เคยรักษา
     const nights = Object.keys(fullHistory).map(Number).sort((a, b) => a - b);
     const rows = [];
     nights.forEach(n => {
       const t = fullHistory[n] && fullHistory[n].protects && fullHistory[n].protects[pid];
-      if (!t || !players[t]) return;
-      const r = ROLES[roles[t]];
-      if (!r) return;
-      rows.push(`<div class="cmsg"><b style="color:var(--gold-dim)">คืนที่ ${n}</b> — รักษา <b>${esc(players[t].name)}</b>: <b style="color:${r.color}">${r.name}</b></div>`);
+      if (!t || !players[t] || roles[t] !== 'enemy') return;
+      rows.push(`<div class="cmsg"><b style="color:var(--gold-dim)">คืนที่ ${n}</b> — รักษา <b>${esc(players[t].name)}</b>: <b style="color:${ROLES.enemy.color}">เป็นศัตรู!</b></div>`);
     });
-    App.modal(`<h2 class="panel-title sm">💊 ประวัติการรักษาทั้งหมด</h2>
-      <div class="p-board" style="max-height:50dvh;overflow-y:auto;display:block">${rows.length ? rows.join('') : '<p class="p-note">ยังไม่เคยรักษาใครเลย</p>'}</div>
+    App.modal(`<h2 class="panel-title sm">💊 ประวัติเจอศัตรูจากการรักษา</h2>
+      <div class="p-board" style="max-height:50dvh;overflow-y:auto;display:block">${rows.length ? rows.join('') : '<p class="p-note">ยังไม่เคยเจอศัตรูจากการรักษาเลย</p>'}</div>
       <button class="btn btn-ghost w100" onclick="App.closeModal()">ปิด</button>`);
   }
 
@@ -358,7 +357,7 @@ const Player = (() => {
         // ผลสืบสวนคืนนี้ — ประกาศให้ทุกคนรู้ (ไม่บอกว่าใครเป็นผู้สืบ แค่บอกประเภทอาชีพ+เป้า+ผล)
         const invPublic = publicInvestigationHtml(res);
         const healHistBtn = myRole === 'doctor'
-          ? '<button class="btn btn-ghost w100 btn-sm" id="btn-heal-history" style="margin:6px 0">💊 ดูประวัติการรักษาทั้งหมด</button>' : '';
+          ? '<button class="btn btn-ghost w100 btn-sm" id="btn-heal-history" style="margin:6px 0">💊 ดูประวัติเจอศัตรูจากการรักษา</button>' : '';
         el.innerHTML = `<div class="action-panel">${chips}${doctorReveal}${invPublic}
           <div class="action-title">☀️ วันที่ ${meta.day} ณ ${loc.name}</div>
           <div class="action-sub">${loc.hook}</div>
@@ -474,16 +473,17 @@ const Player = (() => {
       }
       case 'doctor':
         actionUI(el, {
-          title: '🩺 เลือก 1 คนที่ต้องการรักษาคืนนี้ — จะรู้อาชีพจริงทันที!',
-          sub: 'ต้องเดาเอง — ถ้าคนที่เลือกถูกกำจัดคืนนี้ เขาจะรอดชีวิต (เลือกตัวเองก็ได้ แต่จะไม่มีเอฟเฟกต์วินิจฉัย เพราะรู้อาชีพตัวเองอยู่แล้ว)',
+          title: '🩺 เลือก 1 คนที่ต้องการรักษาคืนนี้',
+          sub: 'ต้องเดาเอง — ถ้าคนที่เลือกถูกกำจัดคืนนี้ เขาจะรอดชีวิต (ถ้าเผลอไปรักษาศัตรูจะรู้ตัวทันที — เลือกตัวเองก็ได้)',
           max: 1, includeSelf: true, skippable: true,
           submit: async (v) => {
             const t = v === '-' ? '-' : v[0];
             await Net.set(`${R}/act/${n}/protect/${pid}`, t);
             submitted.protect = true;
-            if (t !== '-' && t !== pid && roles[t] && ROLES[roles[t]]) {
-              const r = ROLES[roles[t]];
-              await FX.play('healReveal', { name: players[t].name, roleName: r.name, roleColor: r.color });
+            // เดิมเปิดอาชีพจริงทุกครั้ง (รู้ครบทั้ง 9 อาชีพ) แรงเกินไป แย่งบทบาทจารชน/ขุนนางที่รู้แค่ใช่/ไม่ใช่ 1 อย่าง
+            // แก้ให้แคบลง: เปิดเฉพาะกรณีเจอศัตรูเท่านั้น (ขอบเขตใกล้เคียงจารชน) นอกนั้นเงียบ ไม่มีเอฟเฟกต์อะไรเลย
+            if (t !== '-' && t !== pid && roles[t] === 'enemy') {
+              await FX.play('healReveal', { name: players[t].name, roleName: ROLES.enemy.name, roleColor: ROLES.enemy.color });
             }
             $('p-main').innerHTML = `<div class="done-note">✔ จัดยาสมุนไพรเฝ้าคุ้มครองแล้ว<br>รอรุ่งอรุณ...</div>${trivia()}${inboxPanel()}`;
             Sound.chime();
