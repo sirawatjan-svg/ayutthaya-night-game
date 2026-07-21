@@ -224,6 +224,15 @@ const FX = (() => {
         <div class="fx-name">${o.name || ''}</div>
         <div class="fx-verdict ${o.yes ? 'v-yes' : 'v-no'}">${o.text}</div>`, o.yes ? '#e03131' : '#2faf66'), 3400, 'fx-dark');
     },
+    // ประกาศผลสืบสวนให้ทุกคนเห็นตอนต้นคัตซีนเงา (ก่อนฉากอื่นๆ) — สั้นกว่า investigate() ปกติ กันลากยาวถ้าคืนนั้นมีคนสืบหลายคน
+    investigateReveal(o) {
+      Sound.mystery();
+      return show(card(`
+        <div class="fx-art">${Art.icon('lantern', 90)}<div class="fx-beam"></div></div>
+        <h2 style="font-size:1.25rem">${o.title || 'ผลสืบสวนเมื่อคืน'}</h2>
+        <div class="fx-name">${o.name || ''}</div>
+        <div class="fx-verdict ${o.yes ? 'v-yes' : 'v-no'}">${o.text}</div>`, o.yes ? '#e03131' : '#2faf66'), 1400, 'fx-dark');
+    },
     gift(o) {
       Sound.chime(); setTimeout(() => Sound.coins(), 400);
       return show(card(`
