@@ -64,7 +64,9 @@ const Player = (() => {
       Net.on(R + '/winner', v => { if (v) showEnd(v); }),
       Net.on(R + '/private/' + pid, v => { onInbox(v); }),
       Net.on(R + '/goal', v => { if (v) goalP = v; }),
-      Net.on(R + '/results', v => { results = v || {}; render(); }),
+      // เรียก renderMain() ตรงๆ ไม่ใช่ render() — render() มี dedup gate (key ผูกกับ phase/night/day/alive/role เท่านั้น)
+      // ถ้า results มาถึงหลัง render() รอบแรกไปแล้วโดย phase ไม่เปลี่ยน จะโดนกันไม่ให้ renderMain() รันซ้ำ ทำให้สรุปเช้า/ผลสืบสวนไม่โผล่เลย
+      Net.on(R + '/results', v => { results = v || {}; if (meta && meta.phase === 'day') renderMain(); }),
       Net.on(R + '/votes', v => { votesAll = v || {}; updateVoteLive(); }),
     );
     if (tickTimer) clearInterval(tickTimer);
@@ -275,6 +277,31 @@ const Player = (() => {
       last.map(m => `• ${esc(m.text)}`).join('<br>') + '</div>';
   }
 
+  // ---------------- ผลสืบสวนสาธารณะ — ทุกคนรู้ตอนเช้า ไม่บอกว่าใครเป็นผู้สืบ ----------------
+  function invLine(iv) {
+    const t = players[iv.target] ? players[iv.target].name : '?';
+    return iv.type === 'noble'
+      ? `⚖️ ขุนนางสืบพบ: <b>${esc(t)}</b> ${iv.yes ? '<span style="color:var(--red)">⚠️ เป็นโจร!</span>' : '<span style="color:var(--green)">✔ ไม่ใช่โจร</span>'}`
+      : `🕵️ จารชนสืบพบ: <b>${esc(t)}</b> ${iv.yes ? '<span style="color:var(--red)">⚠️ เป็นศัตรู!</span>' : '<span style="color:var(--green)">✔ ไม่ใช่ศัตรู</span>'}`;
+  }
+  function publicInvestigationHtml(res) {
+    const list = res && res.investigations;
+    if (!list || !list.length) return '';
+    return `<div class="trivia" style="border-color:var(--gold)"><b>📯 ประกาศราชการ:</b><br>` +
+      list.map(iv => `• ${invLine(iv)}`).join('<br>') + '</div>';
+  }
+  function showInvestigationHistory() {
+    const nights = Object.keys(results).map(Number).sort((a, b) => a - b);
+    const rows = [];
+    nights.forEach(n => {
+      const list = (results[n] && results[n].investigations) || [];
+      list.forEach(iv => rows.push(`<div class="cmsg"><b style="color:var(--gold-dim)">คืนที่ ${n}</b> — ${invLine(iv)}</div>`));
+    });
+    App.modal(`<h2 class="panel-title sm">📜 ประวัติการสืบสวนทั้งหมด</h2>
+      <div class="p-board" style="max-height:50dvh;overflow-y:auto;display:block">${rows.length ? rows.join('') : '<p class="p-note">ยังไม่มีผลสืบสวน</p>'}</div>
+      <button class="btn btn-ghost w100" onclick="App.closeModal()">ปิด</button>`);
+  }
+
   function renderMain() {
     const el = $('p-main');
     if (!meta || !myRole) { el.innerHTML = '<p class="p-note">กำลังรับบทบาท...</p>'; return; }
@@ -312,11 +339,16 @@ const Player = (() => {
         const doctorReveal = res && res.doctorReveal && players[res.doctorReveal.killer]
           ? `<div class="trivia" style="border-color:var(--red)"><b style="color:var(--red)">⚕️🔍 แพทย์เปิดโปงก่อนสิ้นใจ:</b> <b style="color:var(--red)">${esc(players[res.doctorReveal.killer].name)}</b> คือศัตรู!</div>`
           : '';
-        el.innerHTML = `<div class="action-panel">${chips}${doctorReveal}
+        // ผลสืบสวนคืนนี้ — ประกาศให้ทุกคนรู้ (ไม่บอกว่าใครเป็นผู้สืบ แค่บอกประเภทอาชีพ+เป้า+ผล)
+        const invPublic = publicInvestigationHtml(res);
+        el.innerHTML = `<div class="action-panel">${chips}${doctorReveal}${invPublic}
           <div class="action-title">☀️ วันที่ ${meta.day} ณ ${loc.name}</div>
           <div class="action-sub">${loc.hook}</div>
           <div class="trivia" style="margin:8px 0"><b>💡 รู้หรือไม่?</b> ${loc.fact}</div>
+          <button class="btn btn-ghost w100 btn-sm" id="btn-inv-history" style="margin:6px 0">📜 ดูประวัติการสืบสวนทั้งหมด</button>
           <div class="action-sub" style="color:var(--gold)">สนทนากับเพื่อนในแชท หาตัวผู้ต้องสงสัย ก่อนถึงเวลาลงมติ!</div></div>${inboxPanel()}`;
+        const ihBtn = $('btn-inv-history');
+        if (ihBtn) ihBtn.onclick = showInvestigationHistory;
         break;
       }
       case 'vote': renderVote(el); break;
@@ -378,6 +410,20 @@ const Player = (() => {
     $('p-main').innerHTML = `<div class="done-note">✔ ${doneText}<br>รอรุ่งอรุณ...</div>${trivia()}${inboxPanel()}`;
     Sound.chime();
   }
+  // สืบสวนแล้วรู้ผลทันที — คำนวณจาก roles ที่มีอยู่ในเครื่องอยู่แล้ว ไม่ต้องรอรุ่งอรุณ (เดิมต้องรอผลทางข้อความลับตอนเช้า)
+  async function revealInvestigate(val, checkFn, yesText, noText) {
+    if (val !== '-' && players[val]) {
+      const yes = checkFn(val);
+      await FX.play('investigate', { title: 'ผลการสืบสวน', name: players[val].name, yes, text: yes ? yesText : noText });
+    }
+  }
+  async function submitInvestigate(node, val, checkFn, yesText, noText) {
+    await Net.set(`${R}/act/${meta.night}/${node}/${pid}`, val);
+    submitted[node] = true;
+    await revealInvestigate(val, checkFn, yesText, noText);
+    $('p-main').innerHTML = `<div class="done-note">✔ สืบสวนแล้ว รอรุ่งอรุณ...</div>${trivia()}${inboxPanel()}`;
+    Sound.chime();
+  }
 
   function renderNightAction(el) {
     const n = meta.night;
@@ -421,8 +467,10 @@ const Player = (() => {
             sub: 'คืนนี้เป็นคืนประหาร! หลังสืบแล้วจะได้เลือกลงดาบประหารโจรด้วย',
             max: 1, skippable: true,
             submit: async (v) => {
-              await Net.set(`${R}/act/${n}/nobleInv/${pid}`, v === '-' ? '-' : v[0]);
+              const t = v === '-' ? '-' : v[0];
+              await Net.set(`${R}/act/${n}/nobleInv/${pid}`, t);
               submitted.nobleInv = true;
+              await revealInvestigate(t, (x) => roles[x] === 'thief', '⚠️ เป็นโจร!', '✔ ไม่ใช่โจร');
               renderNightAction(el);
             },
           });
@@ -435,20 +483,20 @@ const Player = (() => {
           });
         } else {
           actionUI(el, {
-            title: '⚖️ ตรวจสอบผู้ต้องสงสัย 1 คน (โจรหรือไม่)',
-            sub: `ผลจะส่งถึงเจ้าลับๆ ตอนเช้า — อีก ${(4 - (n % 4)) % 4 || 4} คืนจะถึงคืนประหาร`,
+            title: '⚖️ ตรวจสอบผู้ต้องสงสัย 1 คน (โจรหรือไม่) — รู้ผลทันที!',
+            sub: `รู้ผลทันทีที่เลือก — อีก ${(4 - (n % 4)) % 4 || 4} คืนจะถึงคืนประหาร (ผลจะประกาศให้ทุกคนรู้ตอนเช้าด้วย แต่ไม่มีใครรู้ว่าเจ้าคือผู้สืบ)`,
             max: 1, skippable: true,
-            submit: (v) => submitAct('nobleInv', v === '-' ? '-' : v[0], 'ออกตระเวนสืบแล้ว'),
+            submit: (v) => submitInvestigate('nobleInv', v === '-' ? '-' : v[0], (x) => roles[x] === 'thief', '⚠️ เป็นโจร!', '✔ ไม่ใช่โจร'),
           });
         }
         break;
       }
       case 'spy':
         actionUI(el, {
-          title: '🕵️ สืบหาศัตรู 1 คนอย่างลับๆ',
-          sub: 'ผลจะส่งถึงเจ้าลับๆ โดยไม่มีใครรู้ว่าเจ้าคือจารชน',
+          title: '🕵️ สืบหาศัตรู 1 คนอย่างลับๆ — รู้ผลทันที!',
+          sub: 'รู้ผลทันทีที่เลือก — ผลจะประกาศให้ทุกคนรู้ตอนเช้าด้วย แต่ไม่มีใครรู้ว่าเจ้าคือจารชน',
           max: 1, skippable: true,
-          submit: (v) => submitAct('spyInv', v === '-' ? '-' : v[0], 'จุดโคมออกสืบแล้ว'),
+          submit: (v) => submitInvestigate('spyInv', v === '-' ? '-' : v[0], (x) => roles[x] === 'enemy', '⚠️ เป็นศัตรู!', '✔ ไม่ใช่ศัตรู'),
         });
         break;
       case 'lord': {
@@ -457,7 +505,14 @@ const Player = (() => {
             title: '👑 เลือกผู้รับพระราชทานศักดินา 25 ไร่ (1 คน)',
             sub: 'ระวัง! ถ้าเผลอให้โจร ศักดินาจะเข้าแก๊งโจรโดยปริยาย',
             max: 1, skippable: true,
-            submit: (v) => submitAct('gift', v === '-' ? '-' : v[0], 'พระราชทานเรียบร้อย'),
+            submit: async (v) => {
+              const t = v === '-' ? '-' : v[0];
+              await Net.set(`${R}/act/${n}/gift/${pid}`, t);
+              submitted.gift = true;
+              if (t !== '-' && players[t]) await FX.play('gift', { text: `เจ้าได้พระราชทานศักดินา 25 ไร่ให้ ${players[t].name}` });
+              $('p-main').innerHTML = `<div class="done-note">✔ พระราชทานเรียบร้อย<br>รอรุ่งอรุณ...</div>${trivia()}${inboxPanel()}`;
+              Sound.chime();
+            },
           });
         } else {
           doneWrap('คืนนี้เจ้าเมืองพักผ่อน (แจกศักดินาได้คืนเว้นคืน)<br>โปรดระวังตัว — ถ้าเจ้าถูกกำจัด ศัตรูชนะทันที');
