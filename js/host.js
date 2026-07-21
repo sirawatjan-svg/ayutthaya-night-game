@@ -515,13 +515,16 @@ const Host = (() => {
       }
     }
 
-    // 7) การสืบสวน (ส่งผลลับ)
+    // 7) การสืบสวน — ผลส่งถึงผู้สืบทันทีที่เลือก (ฝั่งไคลเอนต์คำนวณเองได้เลย) แต่ "ตัวผล" ต้องประกาศให้ทุกคนรู้ตอนเช้าด้วย
+    // ปิดบังแค่ว่า "ใคร" เป็นผู้สืบ (คงความลับของอาชีพจารชน/ขุนนางไว้) — บอกแค่ประเภทอาชีพที่สืบ+เป้า+ผล
+    pub.investigations = [];
     for (const nb of aliveOf('noble')) {
       const t = a.nobleInv && a.nobleInv[nb];
       if (t && t !== '-') {
         const yes = roles[t] === 'thief';
         hist.invNoble.push({ noble: nb, target: t, yes });
         inbox.push({ pid: nb, text: `ผลสืบสวนคืนที่ ${n}: ${players[t].name} ${yes ? '⚠️ เป็นโจร!' : '✔ ไม่ใช่โจร'}` });
+        pub.investigations.push({ type: 'noble', target: t, yes });
       }
     }
     for (const sp of aliveOf('spy')) {
@@ -530,6 +533,7 @@ const Host = (() => {
         const yes = roles[t] === 'enemy';
         hist.invSpy.push({ spy: sp, target: t, yes });
         inbox.push({ pid: sp, text: `ผลสืบสวนคืนที่ ${n}: ${players[t].name} ${yes ? '⚠️ เป็นศัตรู!' : '✔ ไม่ใช่ศัตรู'}` });
+        pub.investigations.push({ type: 'spy', target: t, yes });
       }
     }
 
