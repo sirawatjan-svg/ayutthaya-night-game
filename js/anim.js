@@ -216,6 +216,15 @@ const FX = (() => {
         <h2>หมอหลวงช่วยชีวิตไว้ได้!</h2>
         <div class="fx-sub">${o.text || 'มีผู้รอดพ้นจากเงื้อมมือมัจจุราชเมื่อคืนนี้'}</div>`, '#2faf66'), 3200, 'fx-dark');
     },
+    healReveal(o) {
+      // แพทย์วินิจฉัยคนที่เลือกรักษา — รู้อาชีพจริงทันที (ข้อมูลลับเฉพาะแพทย์เห็นคนเดียว)
+      Sound.heal();
+      return show(card(`
+        <div class="fx-art fx-glow-g">${Art.icon('herb', 100)}${sparkles(10, 'fx-leaf')}</div>
+        <h2>วินิจฉัยแล้ว...</h2>
+        <div class="fx-name">${o.name || ''}</div>
+        <div class="fx-verdict" style="color:${o.roleColor || '#2faf66'}">แท้จริงคือ ${o.roleName || '?'}</div>`, o.roleColor || '#2faf66'), 3000, 'fx-dark');
+    },
     investigate(o) {
       Sound.mystery();
       return show(card(`
