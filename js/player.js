@@ -356,9 +356,13 @@ const Player = (() => {
           : '';
         // ผลสืบสวนคืนนี้ — ประกาศให้ทุกคนรู้ (ไม่บอกว่าใครเป็นผู้สืบ แค่บอกประเภทอาชีพ+เป้า+ผล)
         const invPublic = publicInvestigationHtml(res);
+        // ข่าวลือจากไพร่ — ความเห็นหมู่มาก ไม่ใช่ข้อมูลยืนยัน แค่คนที่โดนชี้เยอะสุด
+        const rumorHtml = res && res.rumor && players[res.rumor.target]
+          ? `<div class="trivia" style="border-color:var(--silver)"><b>🗣️ ข่าวลือในหมู่บ้าน:</b> มีคนพูดถึง <b>${esc(players[res.rumor.target].name)}</b> กันเยอะเมื่อคืน... (ข่าวลือเฉยๆ อาจไม่จริงก็ได้)</div>`
+          : '';
         const healHistBtn = myRole === 'doctor'
           ? '<button class="btn btn-ghost w100 btn-sm" id="btn-heal-history" style="margin:6px 0">💊 ดูประวัติเจอศัตรูจากการรักษา</button>' : '';
-        el.innerHTML = `<div class="action-panel">${chips}${doctorReveal}${invPublic}
+        el.innerHTML = `<div class="action-panel">${chips}${doctorReveal}${invPublic}${rumorHtml}
           <div class="action-title">☀️ วันที่ ${meta.day} ณ ${loc.name}</div>
           <div class="action-sub">${loc.hook}</div>
           <div class="trivia" style="margin:8px 0"><b>💡 รู้หรือไม่?</b> ${loc.fact}</div>
@@ -443,6 +447,42 @@ const Player = (() => {
     await revealInvestigate(val, checkFn, yesText, noText);
     $('p-main').innerHTML = `<div class="done-note">✔ สืบสวนแล้ว รอรุ่งอรุณ...</div>${trivia()}${inboxPanel()}`;
     Sound.chime();
+  }
+
+  // ---------------- มินิเกมทาส: งานหนักยามค่ำคืน (ไม่บังคับ ไม่กันไม่ให้คืนเดินต่อ) ----------------
+  function renderLaborGame(el) {
+    // สุ่มความยาก/รางวัลใหม่ทุกคืน (5 หรือ 10 ไร่) กันเบื่อโดยไม่ต้องทำหลายมินิเกม — ยากขึ้นถ้ารางวัลเยอะขึ้น
+    const reward = Math.random() < 0.5 ? 5 : 10;
+    const target = reward === 10 ? (12 + Math.floor(Math.random() * 6)) : (6 + Math.floor(Math.random() * 5));
+    let count = 0;
+    let done = false;
+    const draw = () => {
+      el.innerHTML = `<div class="action-panel">
+        <div class="action-title">🌾 ทำงานหนักคืนนี้ — แบกข้าวสาร ${target} กระสอบ</div>
+        <div class="action-sub">แตะปุ่มให้ครบจำนวน ได้ศักดินาเพิ่ม ${reward} ไร่ (ไม่บังคับ ข้ามได้)</div>
+        <div style="text-align:center;margin:24px 0">
+          <div style="font-size:2.4rem;color:var(--gold);margin-bottom:14px" id="labor-count">${count} / ${target}</div>
+          <button class="btn btn-gold" id="labor-tap" style="width:140px;height:140px;border-radius:50%;font-size:1.2rem">แตะ!</button>
+        </div>
+        <button class="btn btn-ghost w100" id="labor-skip">ข้ามคืนนี้</button>
+      </div>${trivia()}${inboxPanel()}`;
+      $('labor-tap').onclick = () => {
+        if (done) return;
+        count++;
+        $('labor-count').textContent = `${count} / ${target}`;
+        Sound.tick();
+        if (count >= target) finish();
+      };
+      $('labor-skip').onclick = () => { if (!done) submitAct('labor', '-', 'ข้ามงานคืนนี้'); };
+    };
+    const finish = async () => {
+      done = true;
+      submitted.labor = true;
+      await Net.set(`${R}/act/${meta.night}/labor/${pid}`, reward);
+      $('p-main').innerHTML = `<div class="done-note">✔ ทำงานสำเร็จ! ได้ศักดินาเพิ่ม ${reward} ไร่<br>รอรุ่งอรุณ...</div>${trivia()}${inboxPanel()}`;
+      Sound.coins();
+    };
+    draw();
   }
 
   function renderNightAction(el) {
@@ -550,12 +590,21 @@ const Player = (() => {
         }
         break;
       }
+      case 'serf':
+        actionUI(el, {
+          title: '👁️ ใครดูน่าสงสัยที่สุดคืนนี้?',
+          sub: 'ปรึกษากับชาวบ้านคนอื่นในแชทช่อง "ชาวบ้าน" ได้ — ถ้าเสียงส่วนใหญ่ตรงกัน จะกลายเป็น "ข่าวลือ" ประกาศให้ทุกคนรู้ตอนเช้า (ไม่ใช่ข้อมูลยืนยัน แค่ความเห็นหมู่มาก)',
+          max: 1, skippable: true,
+          submit: (v) => submitAct('rumorVote', v === '-' ? '-' : v[0], 'ส่งความเห็นแล้ว'),
+        });
+        break;
+      case 'slave':
+        renderLaborGame(el);
+        break;
       default:
         doneWrap(myRole === 'mad'
           ? '🤪 รอคอยเวลาของเจ้าในความเงียบ... พรุ่งนี้ทำตัวน่าสงสัยให้ถูกโหวตออกให้ได้ (นับตั้งแต่วันที่ 2)!'
-          : myRole === 'slave'
-            ? '🔗 หลับตารอการตัดสินในวันรุ่งขึ้น'
-            : '💤 หลับตารอข่าวยามเช้า — ขอให้ปลอดภัย');
+          : '💤 หลับตารอข่าวยามเช้า — ขอให้ปลอดภัย');
     }
   }
 
