@@ -49,7 +49,7 @@ const ROLES = {
     sakdina: 25, team: 'villager', icon: 'jar', portrait: 'assets/roles/slave.jpg',
     desc: 'ทาสในเรือนเบี้ย ศักดินา 25 ไร่ อยู่ฝ่ายชาวเมือง',
     warn: 'ศักดินาน้อยมาก โดนปล้นครั้งเดียวก็หมดตัว!',
-    ability: 'โหวตได้ แต่ไม่มีอำนาจพิเศษ',
+    ability: 'ทำงานหนักยามค่ำคืนได้ (ไม่บังคับ) — สำเร็จแล้วได้ศักดินาเพิ่ม',
   },
   doctor: {
     id: 'doctor', name: 'แพทย์', color: '#2faf66', colorName: 'สีเขียว',
@@ -61,7 +61,7 @@ const ROLES = {
     id: 'serf', name: 'ไพร่', color: '#c0c4cc', colorName: 'สีบรอนซ์เงิน',
     sakdina: 100, team: 'villager', icon: 'rice', portrait: 'assets/roles/serf.jpg',
     desc: 'ชาวบ้านสามัญชนแห่งพระนคร ศักดินา 100 ไร่',
-    ability: 'สังเกต วิเคราะห์ และโหวตไล่ผู้ต้องสงสัยออกตอนเช้า',
+    ability: 'ปรึกษากับชาวบ้านคนอื่นทุกคืน ชี้ตัวคนน่าสงสัย — ถ้าเสียงตรงกันมากพอ จะกลายเป็นข่าวลือให้ทั้งเมืองรู้ตอนเช้า',
   },
 };
 
@@ -140,6 +140,7 @@ const CHAT_CHANNELS = [
   { id: 'doctor', name: 'หมอหลวง',  roles: ['doctor'], color: '#2faf66' },
   { id: 'spy',    name: 'จารชน',    roles: ['spy'],    color: '#3ba7e8' },
   { id: 'noble',  name: 'ขุนนาง',   roles: ['noble'],  color: '#8b5a2b' },
+  { id: 'serf',   name: 'ชาวบ้าน',  roles: ['serf'],   color: '#c0c4cc' },
 ];
 function chatChannelsFor(role) {
   return CHAT_CHANNELS.filter(ch => !ch.roles || ch.roles.includes(role));
