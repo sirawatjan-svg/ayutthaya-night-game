@@ -5,7 +5,7 @@
 const Player = (() => {
   let code = null, R = null, pid = null, me = null;
   let meta = null, players = {}, roles = {}, alive = {}, sak = {};
-  let goalP = 450, results = {}, votesAll = {}, fullHistory = {};
+  let goalP = 450, results = {}, votesAll = {}, actsAll = {}, fullHistory = {};
   let myRole = null, revealShown = false, lastPhaseKey = '', prevMetaPhase = null;
   let inboxKeys = new Set(), inboxMsgs = [], firstInbox = true;
   let chatCh = 'all', chatUnsub = null, chatOpen = false, unread = 0, chatCount = {};
@@ -69,6 +69,8 @@ const Player = (() => {
       // ถ้า results มาถึงหลัง render() รอบแรกไปแล้วโดย phase ไม่เปลี่ยน จะโดนกันไม่ให้ renderMain() รันซ้ำ ทำให้สรุปเช้า/ผลสืบสวนไม่โผล่เลย
       Net.on(R + '/results', v => { results = v || {}; if (meta && meta.phase === 'day') renderMain(); }),
       Net.on(R + '/votes', v => { votesAll = v || {}; updateVoteLive(); }),
+      // โจรเห็นเป้าที่โจรคนอื่นเลือกไปแล้วแบบสด (กันเผลอเลือกซ้ำ — server กันซ้ำอยู่แล้วแต่โจรมองไม่เห็นกัน)
+      Net.on(R + '/act', v => { actsAll = v || {}; updateStealLive(); }),
     );
     if (tickTimer) clearInterval(tickTimer);
     tickTimer = setInterval(renderTimer, 600);
@@ -388,16 +390,30 @@ const Player = (() => {
     for (const v in dv) (Array.isArray(dv[v]) ? dv[v] : []).forEach(t => { counts[t] = (counts[t] || 0) + 1; });
     return counts;
   }
+  // เป้าที่โจรคนอื่น (ไม่ใช่ตัวเอง) เลือกไปแล้วคืนนี้ — server กันซ้ำเป้าอยู่แล้ว (host.js) นี่แค่ให้โจรมองเห็นกันเฉยๆ
+  function computeStealClaims() {
+    if (!meta) return {};
+    const st = (actsAll[meta.night] || {}).steal || {};
+    const claims = {};
+    for (const th in st) {
+      if (th === pid) continue;
+      (Array.isArray(st[th]) ? st[th] : []).forEach(t => { claims[t] = (claims[t] || 0) + 1; });
+    }
+    return claims;
+  }
   function targetGrid(sel, opts) {
     const o = opts || {};
     const vc = o.showVoteCounts ? computeVoteCounts() : null;
+    const claims = o.showStealClaims ? computeStealClaims() : null;
     const list = alivePids().filter(p => (o.includeSelf || p !== pid) && !(o.exclude || []).includes(p) && !((o.excludeRoles || []).includes(roles[p])));
     return list.map((p, i) => {
       const bc = badgeColor(myRole, roles[p]);
       const cnt = vc ? (vc[p] || 0) : 0;
+      const claimed = claims ? claims[p] : 0;
       return `<div class="tgt selectable ${sel.has(p) ? 'sel' : ''} ${p === pid ? 'me' : ''}" data-t="${p}" style="--bcol:${bc};--bi:${i}">
         <span class="badge"></span>${Art.avatar(players[p].avatar || 0)}<div class="nm">${esc(players[p].name)}</div>
-        ${cnt ? `<div class="votes">🗳️${cnt}</div>` : ''}</div>`;
+        ${cnt ? `<div class="votes">🗳️${cnt}</div>` : ''}
+        ${claimed ? `<div class="votes">🔒 มีคนเลือกแล้ว</div>` : ''}</div>`;
     }).join('');
   }
   function bindPick(container, sel, max, onChange) {
@@ -492,8 +508,8 @@ const Player = (() => {
       case 'enemy': {
         const q = meta.killQuota || 1;
         actionUI(el, {
-          title: `🩸 ร่วมโหวตเลือกเหยื่อของฝ่ายเจ้า (คืนนี้สังหารได้ ${q} คน)`,
-          sub: 'ศัตรูทุกคนโหวตเลือกเหยื่อ เสียงมากสุดถูกสังหาร เสมอกันระบบสุ่ม — คุยกันในแชทช่อง "ฝ่ายศัตรู"',
+          title: `🩸 เลือกเหยื่อ (สังหารได้ ${q} คน)`,
+          sub: 'เสียงมากสุดโดน คุยแผนในแชท "ฝ่ายศัตรู"',
           max: q, excludeRoles: ['enemy'], allowEmpty: true, skippable: false,
           submit: (v) => submitAct('enemyVotes', (Array.isArray(v) && v.length) ? v : '-', 'ส่งเสียงโหวตแล้ว'),
         });
@@ -503,18 +519,18 @@ const Player = (() => {
         // โจรทุกคนที่ยังไม่ตายลงมือพร้อมกันทุกคืน (เดิม: สุ่ม 1 คนต่อคืน) — จำนวนเป้า/คนลดลงถ้ามีโจรพร้อมกันเยอะ กันปล้นรวมกันโหดเกิน
         const aliveThieves = Object.keys(roles).filter(p => roles[p] === 'thief' && alive[p]).length;
         const cap = perThiefTargets(aliveThieves || 1);
-        actionUI(el, {
-          title: `🏴 เลือก ${cap} คนเพื่อขโมยศักดินา`,
-          sub: `ปล้นได้คนละ 25 ไร่ (ถ้าเหยื่อไม่มีศักดินา ได้ 0) — คุยวางแผนกับพวกเดียวกันในแชทช่อง "แก๊งโจร" กันเลือกซ้ำเป้ากันเอง — แก๊งสะสมครบ ${goalP} ไร่ = ชนะ`,
-          max: cap, excludeRoles: ['thief'], skippable: true,
-          submit: (v) => submitAct('steal', (v === '-' || !v.length) ? '-' : v, 'ลงมือปล้นแล้ว รอผลตอนเช้ามืด'),
+        stealRedraw = actionUI(el, {
+          title: `🏴 เลือก ${cap} คนที่จะปล้น`,
+          sub: `ได้คนละ 25 ไร่ (ไม่มีศักดินา=ได้ 0) — แชท "แก๊งโจร" กันเลือกซ้ำ — สะสมครบ ${goalP} ไร่ชนะ`,
+          max: cap, excludeRoles: ['thief'], skippable: true, showStealClaims: true,
+          submit: (v) => { stealRedraw = null; submitAct('steal', (v === '-' || !v.length) ? '-' : v, 'ลงมือปล้นแล้ว รอผลตอนเช้ามืด'); },
         });
         break;
       }
       case 'doctor':
         actionUI(el, {
-          title: '🩺 เลือก 1 คนที่ต้องการรักษาคืนนี้',
-          sub: 'ต้องเดาเอง — ถ้าคนที่เลือกถูกกำจัดคืนนี้ เขาจะรอดชีวิต (ถ้าเผลอไปรักษาศัตรูจะรู้ตัวทันที — เลือกตัวเองก็ได้)',
+          title: '🩺 เลือกคนที่จะรักษา',
+          sub: 'เดาเอง ถ้าเขาโดนกำจัดคืนนี้จะรอด (เลือกตัวเองได้)',
           max: 1, includeSelf: true, skippable: true,
           submit: async (v) => {
             const t = v === '-' ? '-' : v[0];
@@ -534,8 +550,8 @@ const Player = (() => {
         if (meta.execNight && !submitted.nobleInv) {
           // คืนประหาร: สืบก่อน แล้วค่อยเลือกประหาร
           actionUI(el, {
-            title: '⚖️ ตรวจสอบผู้ต้องสงสัย 1 คน (โจรหรือไม่)',
-            sub: 'คืนนี้เป็นคืนประหาร! หลังสืบแล้วจะได้เลือกลงดาบประหารโจรด้วย',
+            title: '⚖️ ตรวจสอบ 1 คน',
+            sub: 'คืนประหาร! สืบก่อนแล้วค่อยเลือกประหาร',
             max: 1, skippable: true,
             submit: async (v) => {
               const t = v === '-' ? '-' : v[0];
@@ -547,15 +563,15 @@ const Player = (() => {
           });
         } else if (meta.execNight) {
           actionUI(el, {
-            title: '🗡️ ชี้ตัวโจรเพื่อประหาร — ถ้าผิดเจ้าตายแทน!',
-            sub: '⚠️ เลือก 1 คน หรือข้ามถ้าไม่มั่นใจ (ชี้ผิด = เจ้าถูกกำจัดแทน)',
+            title: '🗡️ ประหารโจร (ชี้ผิด = เจ้าตายแทน!)',
+            sub: 'เลือก 1 คน หรือข้ามถ้าไม่มั่นใจ',
             max: 1, skippable: true,
             submit: (v) => submitAct('nobleExec', v === '-' ? '-' : v[0], v === '-' ? 'คืนนี้เก็บดาบไว้ก่อน' : 'ลงดาบแล้ว... รอผลตอนเช้า'),
           });
         } else {
           actionUI(el, {
-            title: '⚖️ ตรวจสอบผู้ต้องสงสัย 1 คน (โจรหรือไม่) — รู้ผลทันที!',
-            sub: `รู้ผลทันทีที่เลือก — อีก ${(4 - (n % 4)) % 4 || 4} คืนจะถึงคืนประหาร (ผลจะประกาศให้ทุกคนรู้ตอนเช้าด้วย แต่ไม่มีใครรู้ว่าเจ้าคือผู้สืบ)`,
+            title: '⚖️ ตรวจสอบ 1 คน — รู้ผลทันที',
+            sub: `อีก ${(4 - (n % 4)) % 4 || 4} คืนถึงคืนประหาร — ผลประกาศตอนเช้า (ไม่มีใครรู้ว่าเจ้าคือผู้สืบ)`,
             max: 1, skippable: true,
             submit: (v) => submitInvestigate('nobleInv', v === '-' ? '-' : v[0], (x) => roles[x] === 'thief' || roles[x] === 'mad', '⚠️ เป็นโจร!', '✔ ไม่ใช่โจร'),
           });
@@ -564,8 +580,8 @@ const Player = (() => {
       }
       case 'spy':
         actionUI(el, {
-          title: '🕵️ สืบหาศัตรู 1 คนอย่างลับๆ — รู้ผลทันที!',
-          sub: 'รู้ผลทันทีที่เลือก — ผลจะประกาศให้ทุกคนรู้ตอนเช้าด้วย แต่ไม่มีใครรู้ว่าเจ้าคือจารชน',
+          title: '🕵️ สืบศัตรู 1 คน — รู้ผลทันที',
+          sub: 'ผลประกาศตอนเช้าด้วย (ไม่มีใครรู้ว่าเจ้าคือจารชน)',
           max: 1, skippable: true,
           submit: (v) => submitInvestigate('spyInv', v === '-' ? '-' : v[0], (x) => roles[x] === 'enemy' || roles[x] === 'mad', '⚠️ เป็นศัตรู!', '✔ ไม่ใช่ศัตรู'),
         });
@@ -573,8 +589,8 @@ const Player = (() => {
       case 'lord': {
         if (meta.giftNight) {
           actionUI(el, {
-            title: '👑 เลือกผู้รับพระราชทานศักดินา 25 ไร่ (1 คน)',
-            sub: 'ระวัง! ถ้าเผลอให้โจร ศักดินาจะเข้าแก๊งโจรโดยปริยาย',
+            title: '👑 พระราชทานศักดินา 25 ไร่ (เลือก 1 คน)',
+            sub: '⚠️ ถ้าให้โจร ศักดินาเข้าแก๊งโจรทันที',
             max: 1, skippable: true,
             submit: async (v) => {
               const t = v === '-' ? '-' : v[0];
@@ -586,14 +602,14 @@ const Player = (() => {
             },
           });
         } else {
-          doneWrap('คืนนี้เจ้าเมืองพักผ่อน (แจกศักดินาได้คืนเว้นคืน)<br>โปรดระวังตัว — ถ้าเจ้าถูกกำจัด ศัตรูชนะทันที');
+          doneWrap('คืนนี้พักผ่อน (แจกได้คืนเว้นคืน)<br>ระวังตัว — ถ้าเจ้าถูกกำจัด ศัตรูชนะทันที');
         }
         break;
       }
       case 'serf':
         actionUI(el, {
-          title: '👁️ ใครดูน่าสงสัยที่สุดคืนนี้?',
-          sub: 'ปรึกษากับชาวบ้านคนอื่นในแชทช่อง "ชาวบ้าน" ได้ — ถ้าเสียงส่วนใหญ่ตรงกัน จะกลายเป็น "ข่าวลือ" ประกาศให้ทุกคนรู้ตอนเช้า (ไม่ใช่ข้อมูลยืนยัน แค่ความเห็นหมู่มาก)',
+          title: '👁️ ใครน่าสงสัยที่สุด?',
+          sub: 'ปรึกษาในแชท "ชาวบ้าน" — เสียงข้างมากกลายเป็นข่าวลือตอนเช้า (ไม่ใช่ข้อมูลยืนยัน)',
           max: 1, skippable: true,
           submit: (v) => submitAct('rumorVote', v === '-' ? '-' : v[0], 'ส่งความเห็นแล้ว'),
         });
@@ -603,8 +619,8 @@ const Player = (() => {
         break;
       default:
         doneWrap(myRole === 'mad'
-          ? '🤪 รอคอยเวลาของเจ้าในความเงียบ... พรุ่งนี้ทำตัวน่าสงสัยให้ถูกโหวตออกให้ได้ (นับตั้งแต่วันที่ 2)!'
-          : '💤 หลับตารอข่าวยามเช้า — ขอให้ปลอดภัย');
+          ? '🤪 รอคอยในความเงียบ... ทำตัวน่าสงสัยให้โดนโหวตออกให้ได้ (นับจากวันที่ 2)'
+          : '💤 หลับตารอข่าวยามเช้า');
     }
   }
 
@@ -618,6 +634,10 @@ const Player = (() => {
     const rows = Object.entries(byTarget).sort((a, b) => b[1].length - a[1].length).map(([t, vs]) =>
       `<div class="vl-row"><b class="vl-target">${nm(t)}</b><span class="vl-count">${vs.length}</span><span class="vl-voters">← ${vs.map(nm).join(', ')}</span></div>`).join('');
     return `<div class="vl-wrap"><div class="vl-title">👁 มติสดของทั้งเมือง</div>${rows || '<div class="vl-row">ยังไม่มีใครลงมติ...</div>'}</div>`;
+  }
+  let stealRedraw = null;
+  function updateStealLive() {
+    if (stealRedraw) stealRedraw(); // รีเฟรชป้าย 🔒 ใต้รูปเป้าที่โจรคนอื่นเลือกไปแล้วแบบสด
   }
   let voteRedraw = null;
   function updateVoteLive() {
@@ -640,8 +660,8 @@ const Player = (() => {
       }
       el.innerHTML = '<div id="p-voteui"></div><div id="p-votelive">' + voteLiveHtmlP() + '</div>';
       voteRedraw = actionUI(el.querySelector('#p-voteui'), {
-        title: `🗳️ ลงมติขับผู้ต้องสงสัย (เลือก ${q} คน)`,
-        sub: '⚠️ ทุกคนเห็นหมดว่าใครโหวตใคร — เลือกให้ดี ประวัติศาสตร์จะจารึก',
+        title: `🗳️ ลงมติขับ (เลือก ${q} คน)`,
+        sub: '⚠️ ทุกคนเห็นว่าใครโหวตใคร',
         max: q, allowEmpty: false, skippable: false, showVoteCounts: true,
         submit: async (v) => {
           await Net.set(`${R}/votes/${meta.day}/${pid}`, v);
