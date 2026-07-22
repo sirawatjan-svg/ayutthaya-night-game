@@ -539,6 +539,33 @@ const Host = (() => {
       }
     }
 
+    // 8) ข่าวลือยามค่ำคืน — ไพร่โหวตกันเองว่าใครน่าสงสัย (ไม่บังคับ ไม่กันไม่ให้คืนเดินต่อ) คนที่โดนชี้เยอะสุดกลายเป็นข่าวลือ ให้ทุกคนรู้ตอนเช้า
+    {
+      const rv = a.rumorVote || {};
+      const tally = {};
+      for (const sf of aliveOf('serf')) {
+        const t = rv[sf];
+        if (t && t !== '-' && alive[t]) tally[t] = (tally[t] || 0) + 1;
+      }
+      const keys = Object.keys(tally);
+      if (keys.length) {
+        const top = shuffle(keys).sort((x, y) => tally[y] - tally[x])[0]; // เสมอกัน = สุ่ม
+        pub.rumor = { target: top, votes: tally[top] };
+      }
+    }
+
+    // 9) งานหนักยามค่ำคืน — ทาสทำมินิเกมสำเร็จ ได้ศักดินาเพิ่ม (ไม่บังคับ ฝั่งไคลเอนต์ส่งแค่จำนวนรางวัลที่ทำได้ ความเสี่ยงโกงต่ำ ไม่กระทบบาลานซ์มาก)
+    {
+      const labor = a.labor || {};
+      for (const sv of aliveOf('slave')) {
+        const reward = Number(labor[sv]);
+        if (reward === 5 || reward === 10) {
+          sak[sv] = (sak[sv] || 0) + reward;
+          inbox.push({ pid: sv, text: `ทำงานหนักคืนนี้สำเร็จ ได้รับศักดินาเพิ่ม ${reward} ไร่` });
+        }
+      }
+    }
+
     // เขียนสถานะทั้งหมด
     hist.deaths = pub.deaths;
     const upd = { loot };
