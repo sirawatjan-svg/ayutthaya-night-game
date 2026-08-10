@@ -193,6 +193,8 @@ const Player = (() => {
   function teammatesHtml() {
     const r = ROLES[myRole];
     if (myRole === 'serf' || !myRole) return '';
+    // ตายแล้ว = ไม่บอกว่าใครเป็นพวกเดียวกัน (ตัดจากที่เจ้าเมืองเคยรู้เป็นความลับ) กันคนข้างๆ แอบมองจอแล้วรู้ทีม
+    if (!alive[pid]) return '<div class="teammates">👻 วิญญาณลืมความจำเรื่องพวกพ้องไปแล้ว</div>';
     const mates = Object.keys(players).filter(p => p !== pid && roles[p] === myRole);
     if (!mates.length) return `<div class="teammates">เจ้าคือ${r.name}เพียงหนึ่งเดียว</div>`;
     return `<div class="teammates">พวกเดียวกับเจ้า (${r.colorName}): ` +
@@ -412,7 +414,8 @@ const Player = (() => {
     const claims = o.showStealClaims ? computeStealClaims() : null;
     const list = alivePids().filter(p => (o.includeSelf || p !== pid) && !(o.exclude || []).includes(p) && !((o.excludeRoles || []).includes(roles[p])));
     return list.map((p, i) => {
-      const bc = badgeColor(myRole, roles[p]);
+      // ตายแล้ว = ไม่โชว์สีแยกทีมพวกเดียวกันอีกต่อไป (กันคนข้างๆ แอบมองจอเห็นว่าใครเป็นทีมใคร + ทำให้ทายเป้าศัตรูของผีเป็นการเดาจริงๆ ไม่ใช่มองสีแล้วรู้)
+      const bc = badgeColor(alive[pid] ? myRole : null, roles[p]);
       const cnt = vc ? (vc[p] || 0) : 0;
       const claimed = claims ? claims[p] : 0;
       return `<div class="tgt selectable ${sel.has(p) ? 'sel' : ''} ${p === pid ? 'me' : ''}" data-t="${p}" style="--bcol:${bc};--bi:${i}">
@@ -694,7 +697,7 @@ const Player = (() => {
     if (!meta || meta.phase === 'end') { el.innerHTML = ''; return; }
     if (['night', 'vote'].includes(meta.phase) && alive[pid]) { el.innerHTML = ''; return; } // ช่วงเลือกเป้าหมาย กระดานอยู่ใน action panel แล้ว
     el.innerHTML = Object.entries(players).map(([p, pl], i) => {
-      const bc = badgeColor(myRole, roles[p]);
+      const bc = badgeColor(alive[pid] ? myRole : null, roles[p]); // ตายแล้ว = ไม่โชว์สีแยกทีมพวกเดียวกัน (เหตุผลเดียวกับ targetGrid ด้านบน)
       return `<div class="tgt ${alive[p] ? '' : 'dead'} ${p === pid ? 'me' : ''}" style="--bcol:${bc};--bi:${i}">
         <span class="badge"></span>${Art.avatar(pl.avatar || 0)}<div class="nm">${esc(pl.name)}</div></div>`;
     }).join('');
