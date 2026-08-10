@@ -81,14 +81,38 @@ const App = (() => {
     el.querySelectorAll('.chip').forEach(c => c.onclick = () => { onSet(+c.dataset.m); chipRow(el, +c.dataset.m, onSet); Sound.tick(); });
   }
 
-  // ---------------- ฟอร์มนักเรียน ----------------
-  let costume = Math.floor(Math.random() * COSTUMES.length);
-  function renderCostumes() {
-    const row = $('costume-row');
-    row.innerHTML = COSTUMES.map(c =>
-      `<div class="costume-opt ${c.id === costume ? 'sel' : ''}" data-c="${c.id}">${Art.avatar(c.id)}</div>`).join('');
-    $('costume-name').textContent = COSTUMES[costume].name;
-    row.querySelectorAll('.costume-opt').forEach(o => o.onclick = () => { costume = +o.dataset.c; renderCostumes(); Sound.tick(); });
+  // ---------------- ฟอร์มนักเรียน: ผสมชุดเอง (v1, 2026-07-22) ----------------
+  // เดิมเลือก 1 ใน 10 ชุดสำเร็จรูป — เปลี่ยนเป็นผสมเอง 6 ส่วนอิสระ (สีผิว/ผม/เสื้อ/ผ้านุ่ง/สีผ้า/สีขลิบ) ตามฟีดแบ็กนักเรียน
+  let av = {
+    skin: Math.floor(Math.random() * SKIN_TONES.length),
+    hair: Math.floor(Math.random() * HAIR_STYLES.length),
+    top: Math.floor(Math.random() * TOP_STYLES.length),
+    bottom: Math.floor(Math.random() * BOTTOM_STYLES.length),
+    cloth: Math.floor(Math.random() * CLOTH_COLORS.length),
+    accent: Math.floor(Math.random() * ACCENT_COLORS.length),
+  };
+  function swatchRow(id, colors, key) {
+    const row = $(id);
+    row.innerHTML = colors.map((col, i) =>
+      `<div class="sw-opt ${i === av[key] ? 'sel' : ''}" data-i="${i}" style="background:${col.hex || col}"></div>`).join('');
+    row.querySelectorAll('.sw-opt').forEach(o => o.onclick = () => { av[key] = +o.dataset.i; Sound.tick(); renderAvatarPicker(); });
+  }
+  function pieceRow(id, list, key) {
+    const row = $(id);
+    row.innerHTML = list.map((it, i) => {
+      const preview = Object.assign({}, av); preview[key] = i;
+      return `<div class="costume-opt ${i === av[key] ? 'sel' : ''}" data-i="${i}">${Art.avatar(preview)}</div>`;
+    }).join('');
+    row.querySelectorAll('.costume-opt').forEach(o => o.onclick = () => { av[key] = +o.dataset.i; Sound.tick(); renderAvatarPicker(); });
+  }
+  function renderAvatarPicker() {
+    $('av-preview').innerHTML = Art.avatar(av);
+    swatchRow('av-skin', SKIN_TONES, 'skin');
+    pieceRow('av-hair', HAIR_STYLES, 'hair');
+    pieceRow('av-top', TOP_STYLES, 'top');
+    pieceRow('av-bottom', BOTTOM_STYLES, 'bottom');
+    swatchRow('av-cloth', CLOTH_COLORS, 'cloth');
+    swatchRow('av-accent', ACCENT_COLORS, 'accent');
   }
 
   // ---------------- เริ่มระบบ ----------------
@@ -133,7 +157,7 @@ const App = (() => {
 
     document.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => show('v-home'));
     $('btn-host').onclick = () => { show('v-create'); chipRow($('day-mins'), dayMin, v => dayMin = v); chipRow($('night-mins'), nightMin, v => nightMin = v); };
-    $('btn-join').onclick = () => { show('v-join'); renderCostumes(); };
+    $('btn-join').onclick = () => { show('v-join'); renderAvatarPicker(); };
     $('modal-wrap').onclick = (e) => { if (e.target.id === 'modal-wrap') closeModal(); };
 
     $('btn-create-room').onclick = async () => {
@@ -151,7 +175,7 @@ const App = (() => {
       if (!/^\d{6}$/.test(codeV)) { err.textContent = 'กรอกรหัสห้อง 6 หลัก'; return; }
       if (!name) { err.textContent = 'กรอกชื่อของเจ้าก่อน'; return; }
       $('btn-join-room').disabled = true;
-      try { await Player.join(codeV, name, costume); }
+      try { await Player.join(codeV, name, av); }
       catch (e) { err.textContent = String(e); $('btn-join-room').disabled = false; }
     };
 
