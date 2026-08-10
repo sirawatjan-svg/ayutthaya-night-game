@@ -371,7 +371,7 @@ const Host = (() => {
     const pub = { deaths: [], saved: 0, stealTotal: 0, stealCount: 0, gifted: null, exec: [] };
     const inbox = [];        // {pid, text}
     // ประวัติละเอียดสำหรับสรุปท้ายเกม + คิดคะแนน
-    const hist = { night: n, gift: null, protects: {}, steals: [], execs: [], deaths: [], saved: [], invNoble: [], invSpy: [], enemyVotes: {} };
+    const hist = { night: n, gift: null, protects: {}, steals: [], execs: [], deaths: [], saved: [], invNoble: [], invSpy: [], enemyVotes: {}, enemyTargets: [], ghostGuesses: {} };
 
     await setPhase('dawnfx', n, meta.day, 0);
 
@@ -455,6 +455,18 @@ const Host = (() => {
     const kq = killQuota(alivePids().length - aliveOf('enemy').length); // แก้บั๊ก: เดิมส่งเลขคืนเข้าไปผิด ทำให้ห้องใหญ่ได้โควตาน้อยกว่าที่แจ้งผู้เล่นเสมอ
     const kranked = shuffle(Object.keys(evotes)).sort((x, y) => evotes[y] - evotes[x]);
     const killed = kranked.slice(0, kq);
+    hist.enemyTargets = killed.slice(); // เป้าจริงที่ศัตรูเลือก ก่อนหมอ/องครักษ์จะเข้ามาช่วย — ใช้เฉลยคำทายผี (ไม่ใช้ hist.deaths เพราะถ้าหมอช่วยรอด ผีที่ทายถูกจะโดนตัดสินผิดอย่างไม่เป็นธรรม)
+
+    // 4.1) วิญญาณผู้ตาย ทายว่าศัตรูจะเลือกฆ่าใคร (ไม่บังคับ ไม่กระทบเกมจริง แค่ให้คนตายมีอะไรทำ+ลุ้น) — เฉลยทันทีตอนเช้า เก็บผลไว้คิดคะแนนจบเกมด้วย
+    const gg = a.ghostGuess || {};
+    hist.ghostGuesses = gg;
+    for (const gp in gg) {
+      const guess = gg[gp];
+      if (guess && guess !== '-' && players[guess]) {
+        const hit = killed.includes(guess);
+        inbox.push({ pid: gp, text: hit ? `👻 ทายถูก! ศัตรูเล็งเป้าไปที่ ${players[guess].name} จริงๆ (+3 แต้ม)` : `👻 ทายพลาด... ศัตรูไม่ได้เลือก ${players[guess].name} คืนนี้` });
+      }
+    }
     let madReflected = false;
     for (const t of killed) {
       if (deaths.has(t)) continue;
@@ -689,6 +701,11 @@ const Host = (() => {
         if (hits) add(en, 5 * hits, `ลอบสังหารสำเร็จ ${hits} คน (คืน ${n})`);
       }
       if (h.gift && h.gift.toRole && h.gift.toRole !== 'thief' && h.gift.toRole !== 'enemy') add(h.gift.from, 5, `แจกศักดินาให้ชาวเมือง (คืน ${n})`);
+      // วิญญาณทายถูกว่าศัตรูจะเลือกฆ่าใคร — เทียบกับเป้าจริงที่ศัตรูเลือก (h.enemyTargets) ไม่ใช่คนตายจริง (h.deaths) เพราะหมออาจช่วยรอดได้
+      for (const gp in (h.ghostGuesses || {})) {
+        const guess = h.ghostGuesses[gp];
+        if (guess && guess !== '-' && (h.enemyTargets || []).includes(guess)) add(gp, 3, `ทายถูกว่าศัตรูจะเลือกฆ่าใคร (คืน ${n})`);
+      }
     }
     return S;
   }
