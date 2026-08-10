@@ -130,6 +130,12 @@ const Art = (() => {
       <circle cx="68" cy="16" r="3.5" fill="${c.cloth}"/>`, // โพกผ้า
     (c) => `<path d="M32,18 Q32,6 50,6 Q68,6 68,18 L66,24 Q50,18 34,24 Z" fill="#1c1410"/>
       <path d="M64,20 Q72,34 68,52 Q65,58 61,54 Q66,36 60,22 Z" fill="#1c1410"/>`, // ผมเปีย
+    (c) => `<path d="M32,18 Q32,6 50,6 Q68,6 68,18 L66,24 Q50,18 34,24 Z" fill="#1c1410"/>
+      <path d="M33,20 Q26,34 30,50 Q32,55 35,52 Q31,38 36,22 Z" fill="#1c1410"/>
+      <path d="M67,20 Q74,34 70,50 Q68,55 65,52 Q69,38 64,22 Z" fill="#1c1410"/>`, // ผมยาวสยาย
+    (c) => `<path d="M33,20 Q32,8 50,7 Q68,8 67,20 L66,26 Q50,20 34,26 Z" fill="#1c1410"/><circle cx="50" cy="5" r="8" fill="#1c1410"/>
+      <path d="M46,10 Q44,20 46,30" stroke="${c.accent}" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <path d="M54,10 Q56,20 54,30" stroke="${c.accent}" stroke-width="2" fill="none" stroke-linecap="round"/>`, // มวยผมพู่ห้อย
   ];
   // เสื้อ 2 แบบ — แยกอิสระจากผมแล้ว (เดิมผูกกับผมเป็นสวิตช์เดียว)
   const TOP_FNS = [
@@ -138,6 +144,13 @@ const Art = (() => {
     (c) => `<path d="M36,52 Q50,46 64,52 L66,92 L34,92 Z" fill="${c.skin}"/>
       <path d="M63,49 L36,86 L36,94 L48,94 L67,60 Z" fill="${c.cloth}"/>
       <path d="M63,49 L67,60 L64,64 L60,52 Z" fill="${c.accent}"/>`, // สไบเฉวียง
+    (c) => `<path d="M36,52 Q50,46 64,52 L66,92 L34,92 Z" fill="${c.skin}"/>
+      <path d="M63,49 L36,86 L36,94 L48,94 L67,60 Z" fill="${c.cloth}"/>
+      <path d="M63,49 L67,60 L64,64 L60,52 Z" fill="${c.accent}"/>
+      <path d="M58,55 L40,84 L43,86 L61,58 Z" fill="${c.accent}" opacity="0.6"/>`, // สไบขลิบคู่
+    (c) => `<path d="M36,52 Q50,46 64,52 L66,92 L34,92 Z" fill="${c.skin}"/>
+      <path d="M62,50 L38,88 L44,92 L66,58 Z" fill="${c.accent}" opacity="0.95"/>
+      <path d="M37,74 L63,74 L63,82 L37,82 Z" fill="${c.cloth}" opacity="0.9"/>`, // ห่มคาดพุง
   ];
   // ผ้านุ่ง 2 แบบ — 0 โจงกระเบน (เดิม), 1 ผ้าถุง (ใหม่ ทรงกระบอกตรง ไม่มีจีบขา ต่างจากโจงกระเบนชัดเจน)
   const BOTTOM_FNS = [
@@ -146,6 +159,13 @@ const Art = (() => {
       <path d="M46,120 L48,124 L47,128 L45,126 Z" fill="${c.accent}" opacity="0.8"/>`, // โจงกระเบน
     (c) => `<path d="M37,92 L63,92 L67,134 Q50,140 33,134 Z" fill="${c.cloth}"/>
       <path d="M37,92 L63,92 L64,100 L36,100 Z" fill="${c.accent}" opacity="0.85"/>`, // ผ้าถุง
+    (c) => `<path d="M40,92 L60,92 L62,120 Q56,124 50,124 Q44,124 38,120 Z" fill="${c.cloth}"/>
+      <path d="M38,92 L62,92 L64,116 Q60,132 54,130 L52,120 L48,120 L46,130 Q40,132 36,116 Z" fill="${c.cloth}"/>
+      <path d="M46,120 L48,124 L47,128 L45,126 Z" fill="${c.accent}" opacity="0.8"/>
+      <path d="M39,114 L61,114 L60,119 L40,119 Z" fill="${c.accent}" opacity="0.55"/>`, // โจงกระเบนลายเชิง
+    (c) => `<path d="M37,92 L63,92 L67,134 Q50,140 33,134 Z" fill="${c.cloth}"/>
+      <path d="M37,92 L63,92 L64,100 L36,100 Z" fill="${c.accent}" opacity="0.85"/>
+      <path d="M35,122 L65,122 L64,128 L36,128 Z" fill="${c.accent}" opacity="0.55"/>`, // ผ้าถุงลายเชิง
   ];
   function character(c, opts) {
     const o = opts || {};
