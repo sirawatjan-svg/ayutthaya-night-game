@@ -121,42 +121,75 @@ const Art = (() => {
   }
 
   // ---------- ตัวละครชุดอยุธยา ----------
+  // ทรงผม 4 แบบ — 0/1 คือของเดิม (ผมสั้น/มวยผม) ต่อยอดจากฐานเดิมเป๊ะ, 2/3 เป็นของใหม่ (โพกผ้า/ผมเปีย) ต่อยอดจากทรงฐานเดียวกันเพื่อความเสี่ยงต่ำ
+  const HAIR_FNS = [
+    (c) => `<path d="M32,18 Q32,6 50,6 Q68,6 68,18 L66,24 Q50,18 34,24 Z" fill="#1c1410"/>`, // ผมสั้น
+    (c) => `<path d="M33,20 Q32,8 50,7 Q68,8 67,20 L66,26 Q50,20 34,26 Z" fill="#1c1410"/><circle cx="50" cy="7" r="7" fill="#1c1410"/><circle cx="50" cy="6" r="2.4" fill="${c.accent}"/>`, // มวยผม
+    (c) => `<path d="M31,20 Q31,8 50,7 Q69,8 69,20 L67,25 Q50,19 33,25 Z" fill="${c.cloth}"/>
+      <path d="M31,18 Q50,24 69,18 L69,14 Q50,20 31,14 Z" fill="${c.accent}" opacity="0.9"/>
+      <circle cx="68" cy="16" r="3.5" fill="${c.cloth}"/>`, // โพกผ้า
+    (c) => `<path d="M32,18 Q32,6 50,6 Q68,6 68,18 L66,24 Q50,18 34,24 Z" fill="#1c1410"/>
+      <path d="M64,20 Q72,34 68,52 Q65,58 61,54 Q66,36 60,22 Z" fill="#1c1410"/>`, // ผมเปีย
+  ];
+  // เสื้อ 2 แบบ — แยกอิสระจากผมแล้ว (เดิมผูกกับผมเป็นสวิตช์เดียว)
+  const TOP_FNS = [
+    (c) => `<path d="M36,52 Q50,46 64,52 L66,92 L34,92 Z" fill="${c.skin}"/>
+      <path d="M62,50 L38,88 L44,92 L66,58 Z" fill="${c.accent}" opacity="0.95"/>`, // ห่มธรรมดา
+    (c) => `<path d="M36,52 Q50,46 64,52 L66,92 L34,92 Z" fill="${c.skin}"/>
+      <path d="M63,49 L36,86 L36,94 L48,94 L67,60 Z" fill="${c.cloth}"/>
+      <path d="M63,49 L67,60 L64,64 L60,52 Z" fill="${c.accent}"/>`, // สไบเฉวียง
+  ];
+  // ผ้านุ่ง 2 แบบ — 0 โจงกระเบน (เดิม), 1 ผ้าถุง (ใหม่ ทรงกระบอกตรง ไม่มีจีบขา ต่างจากโจงกระเบนชัดเจน)
+  const BOTTOM_FNS = [
+    (c) => `<path d="M40,92 L60,92 L62,120 Q56,124 50,124 Q44,124 38,120 Z" fill="${c.cloth}"/>
+      <path d="M38,92 L62,92 L64,116 Q60,132 54,130 L52,120 L48,120 L46,130 Q40,132 36,116 Z" fill="${c.cloth}"/>
+      <path d="M46,120 L48,124 L47,128 L45,126 Z" fill="${c.accent}" opacity="0.8"/>`, // โจงกระเบน
+    (c) => `<path d="M37,92 L63,92 L67,134 Q50,140 33,134 Z" fill="${c.cloth}"/>
+      <path d="M37,92 L63,92 L64,100 L36,100 Z" fill="${c.accent}" opacity="0.85"/>`, // ผ้าถุง
+  ];
   function character(c, opts) {
     const o = opts || {};
-    const hairMale = `<path d="M32,18 Q32,6 50,6 Q68,6 68,18 L66,24 Q50,18 34,24 Z" fill="#1c1410"/>`;
-    const hairBun = `<path d="M33,20 Q32,8 50,7 Q68,8 67,20 L66,26 Q50,20 34,26 Z" fill="#1c1410"/><circle cx="50" cy="7" r="7" fill="#1c1410"/><circle cx="50" cy="6" r="2.4" fill="${c.accent}"/>`;
-    const topMale = `
-      <path d="M36,52 Q50,46 64,52 L66,92 L34,92 Z" fill="${c.skin}"/>
-      <path d="M62,50 L38,88 L44,92 L66,58 Z" fill="${c.accent}" opacity="0.95"/>`;
-    const topSabai = `
-      <path d="M36,52 Q50,46 64,52 L66,92 L34,92 Z" fill="${c.skin}"/>
-      <path d="M63,49 L36,86 L36,94 L48,94 L67,60 Z" fill="${c.cloth}"/>
-      <path d="M63,49 L67,60 L64,64 L60,52 Z" fill="${c.accent}"/>`;
-    const female = c.hair === 'bun';
+    const hairFn = HAIR_FNS[c.hair % HAIR_FNS.length] || HAIR_FNS[0];
+    const topFn = TOP_FNS[c.top % TOP_FNS.length] || TOP_FNS[0];
+    const bottomFn = BOTTOM_FNS[c.bottom % BOTTOM_FNS.length] || BOTTOM_FNS[0];
     return `<svg viewBox="0 0 100 170" xmlns="http://www.w3.org/2000/svg" ${o.attrs || ''}>
       <ellipse cx="50" cy="160" rx="26" ry="6" fill="#000" opacity="0.18"/>
-      <path d="M40,92 L60,92 L62,120 Q56,124 50,124 Q44,124 38,120 Z" fill="${c.cloth}"/>
-      <path d="M38,92 L62,92 L64,116 Q60,132 54,130 L52,120 L48,120 L46,130 Q40,132 36,116 Z" fill="${c.cloth}"/>
-      <path d="M46,120 L48,124 L47,128 L45,126 Z" fill="${c.accent}" opacity="0.8"/>
+      ${bottomFn(c)}
       <rect x="42" y="128" width="6" height="26" rx="3" fill="${c.skin}"/>
       <rect x="52" y="128" width="6" height="26" rx="3" fill="${c.skin}"/>
       <path d="M40,152 L49,152 L49,158 L38,158 Z" fill="#7a5a3a"/>
       <path d="M51,152 L60,152 L62,158 L51,158 Z" fill="#7a5a3a"/>
       <path d="M34,54 Q30,58 28,76 Q27,84 32,86 Q36,86 36,80 L38,60 Z" fill="${c.skin}"/>
       <path d="M66,54 Q70,58 72,76 Q73,84 68,86 Q64,86 64,80 L62,60 Z" fill="${c.skin}"/>
-      ${female ? topSabai : topMale}
+      ${topFn(c)}
       <path d="M36,88 L64,88 L64,94 L36,94 Z" fill="${c.accent}"/>
       <rect x="44" y="40" width="12" height="12" fill="${c.skin}"/>
       <circle cx="50" cy="30" r="17" fill="${c.skin}"/>
       <path d="M33,30 a3,4 0 1,0 0.1,0 Z M67,30 a3,4 0 1,0 -0.1,0 Z" fill="${c.skin}"/>
-      ${female ? hairBun : hairMale}
+      ${hairFn(c)}
       <circle cx="44" cy="30" r="1.8" fill="#241a12"/><circle cx="56" cy="30" r="1.8" fill="#241a12"/>
       <path d="M41,25.6 q3,-2.4 6,-0.6 M53,25 q3,-1.8 6,0.6" stroke="#241a12" stroke-width="1.2" fill="none" stroke-linecap="round"/>
       <path d="M45,37 Q50,40.6 55,37" stroke="#8c5a40" stroke-width="1.6" fill="none" stroke-linecap="round"/>
     </svg>`;
   }
-  function avatar(costumeId, attrs) {
-    return character(COSTUMES[costumeId % COSTUMES.length], { attrs: attrs || '' });
+  // รับได้ทั้ง 2 แบบ: เลขชุดสำเร็จรูปเดิม (จากข้อมูลเก่า/บอทซ้อม) หรืออ็อบเจ็กต์ผสมเองแบบใหม่ {skin,hair,top,bottom,cloth,accent}
+  function normalizeAvatar(a) {
+    if (a && typeof a === 'object') {
+      return {
+        skin: SKIN_TONES[(a.skin || 0) % SKIN_TONES.length],
+        cloth: CLOTH_COLORS[(a.cloth || 0) % CLOTH_COLORS.length].hex,
+        accent: ACCENT_COLORS[(a.accent || 0) % ACCENT_COLORS.length].hex,
+        hair: (a.hair || 0) % HAIR_STYLES.length,
+        top: (a.top || 0) % TOP_STYLES.length,
+        bottom: (a.bottom || 0) % BOTTOM_STYLES.length,
+      };
+    }
+    const row = COSTUMES[(Number(a) || 0) % COSTUMES.length];
+    const isFemale = row.hair === 'bun';
+    return { skin: row.skin, cloth: row.cloth, accent: row.accent, hair: isFemale ? 1 : 0, top: isFemale ? 1 : 0, bottom: 0 };
+  }
+  function avatar(a, attrs) {
+    return character(normalizeAvatar(a), { attrs: attrs || '' });
   }
 
   // ---------- ไอคอนอาชีพ (วาดใน viewBox 100x100) ----------
