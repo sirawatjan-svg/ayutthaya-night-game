@@ -144,12 +144,18 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
 .chip.sel { background: var(--gold); color: #3a2a02; font-weight: 600; border-color: #f8e08c; transform: scale(1.06); }
 .err { color: #ff8080; text-align: center; margin-top: 10px; min-height: 1.2em; }
 
-/* ---------- เลือกชุด ---------- */
-.costume-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+/* ---------- แต่งตัวผสมเอง (v1, 2026-07-22) ---------- */
+.av-preview { display: flex; justify-content: center; margin-bottom: 8px; }
+.av-preview svg { width: 96px; height: auto; filter: drop-shadow(0 6px 14px rgba(0,0,0,0.4)); }
+.av-row-label { color: var(--gold-dim); font-size: 0.8rem; margin: 10px 0 4px; }
+.costume-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(52px, 1fr)); gap: 8px; }
 .costume-opt { border: 2px solid transparent; border-radius: 12px; padding: 4px; cursor: pointer; background: rgba(0,0,0,0.25); transition: all 0.15s; }
 .costume-opt svg { width: 100%; height: auto; display: block; }
 .costume-opt.sel { border-color: var(--gold); background: rgba(245,197,24,0.12); transform: scale(1.07); box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
-.costume-name { text-align: center; color: var(--gold-dim); font-size: 0.9rem; margin-top: 6px; min-height: 1.3em; }
+/* แถวสี (ผิว/ผ้า/ขลิบ) — วงกลมสีล้วน เล็กกว่าการ์ดตัวละคร */
+.sw-row { grid-template-columns: repeat(auto-fit, minmax(34px, 1fr)); gap: 6px; }
+.sw-opt { width: 34px; height: 34px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; margin: auto; transition: all 0.15s; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25); }
+.sw-opt.sel { border-color: var(--gold); transform: scale(1.15); box-shadow: 0 4px 10px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(0,0,0,0.25); }
 
 /* ---------- ล็อบบี้ครู ---------- */
 .hl-grid { display: grid; grid-template-columns: 380px 1fr; gap: 14px; max-width: 1200px; margin: auto; width: 100%; }
@@ -455,7 +461,7 @@ h1, h2, h3, .game-title, .phase-badge, .room-code, .fx-card h2 { font-family: 'S
 
 /* จอเล็กมาก */
 @media (max-width: 380px) {
-  .costume-row { grid-template-columns: repeat(5, 1fr); gap: 5px; }
+  .costume-row { gap: 5px; }
   .p-board { grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); }
 }
 
