@@ -56,10 +56,13 @@ const Player = (() => {
         prevMetaPhase = v.phase;
         meta = v; render();
       }),
-      Net.on(R + '/players', v => { players = v || {}; me = players[pid] || me; render(); }),
+      // เจอบั๊กจริงระหว่างเทสต์ฟีเจอร์ทายผีคืนนี้: ถ้าโหลดหน้าตอนตายอยู่แล้ว+กลางคืน แล้ว meta มาถึงก่อน players/alive จะโดน gate ของ render()
+      // บล็อกไม่ให้ renderMain() รันซ้ำเลย เพราะ key ใช้ (alive[pid]?1:0) ซึ่งเป็น 0 เหมือนกันทั้งตอนข้อมูลยังไม่มาและตอนข้อมูลจริงมาแล้ว (คนนี้ตายจริง)
+      // ต่างจากคนเป็นที่ค่าจะพลิกจาก 0→1 เมื่อข้อมูลจริงมาถึง ทำให้ได้ re-render รอบสองฟรีๆ — คนตายไม่มีโอกาสนั้นเลย ต้อง bypass gate ตรงๆ เฉพาะตอนกลางคืน+ตายอยู่
+      Net.on(R + '/players', v => { players = v || {}; me = players[pid] || me; render(); if (meta && meta.phase === 'night' && !alive[pid]) renderMain(); }),
       Net.on(R + '/roles/' + pid, v => { if (v) { myRole = v; bindChat(); render(); } }),
       Net.on(R + '/roles', v => { roles = v || {}; }),
-      Net.on(R + '/alive', v => { alive = v || {}; render(); }),
+      Net.on(R + '/alive', v => { alive = v || {}; render(); if (meta && meta.phase === 'night' && !alive[pid]) renderMain(); }),
       Net.on(R + '/sak/' + pid, v => { sak[pid] = v; renderSak(); }),
       Net.on(R + '/winner', v => { if (v) showEnd(v); }),
       Net.on(R + '/private/' + pid, v => { onInbox(v); }),
@@ -324,6 +327,8 @@ const Player = (() => {
     if (!meta || !myRole) { el.innerHTML = '<p class="p-note">กำลังรับบทบาท...</p>'; return; }
     if (meta.phase === 'end') return;
     if (!alive[pid]) {
+      // คนตายตอนกลางคืน: ให้ทายว่าศัตรูจะเลือกฆ่าใคร (ไม่บังคับ) แทนจอนิ่งๆ — เฟสอื่นยังเป็นข้อความเดิม
+      if (meta.phase === 'night') { renderGhostGuess(el); return; }
       el.innerHTML = `<div class="p-note">✝ เจ้าถูกกำจัดแล้ว... วิญญาณของเจ้ายังคงเฝ้ามองพระนคร<br>ดูเหตุการณ์ต่อได้ แต่ห้ามบอกใบ้เพื่อนเด็ดขาด!</div>${inboxPanel()}`;
       return;
     }
@@ -499,6 +504,16 @@ const Player = (() => {
       Sound.coins();
     };
     draw();
+  }
+
+  // ---------------- วิญญาณผู้ตาย: ทายว่าศัตรูจะเลือกฆ่าใครคืนนี้ (ไม่บังคับ ไม่กระทบเกมจริง) ----------------
+  function renderGhostGuess(el) {
+    actionUI(el, {
+      title: '👻 ทายว่าศัตรูจะเลือกฆ่าใครคืนนี้',
+      sub: 'ทายถูกได้ 3 แต้มสะสมไปตอนจบเกม (ไม่บังคับ) — เฉลยตอนเช้า',
+      max: 1, includeSelf: false, skippable: true,
+      submit: (v) => submitAct('ghostGuess', v === '-' ? '-' : v[0], 'ส่งคำทายแล้ว'),
+    });
   }
 
   function renderNightAction(el) {
