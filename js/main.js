@@ -109,17 +109,27 @@ const App = (() => {
     }).join('');
     row.querySelectorAll('.costume-opt').forEach(o => o.onclick = () => { av[key] = +o.dataset.i; Sound.tick(); renderAvatarPicker(); });
   }
+  // ทุกแถวมี try/catch แยกกัน — user รายงานว่าบางเครื่องจริง (Android+iPhone) แถวว่างหมดเลือกไม่ได้ แต่ทดสอบซ้ำในเครื่องมือหลายแบบแล้วไม่เจอ
+  // ทำเป็นข้อความ error โชว์บนจอเลย (ไม่ต้องง้อ devtools) เพื่อให้ user ถ่ายภาพ/บอกข้อความจริงกลับมาได้ ถ้าเกิดพังอีก
+  function safeRow(fn, label) {
+    try { fn(); } catch (e) {
+      const box = document.createElement('div');
+      box.style.cssText = 'color:#ff8080;font-size:0.75rem;padding:6px;border:1px solid #ff8080;border-radius:8px;margin:4px 0';
+      box.textContent = `⚠️ ${label} โหลดพลาด: ${e.message}`;
+      document.querySelector('#v-join .field').appendChild(box);
+    }
+  }
   function renderAvatarPicker() {
-    $('av-preview').innerHTML = Art.avatar(av);
-    swatchRow('av-skin', SKIN_TONES, 'skin');
-    pieceRow('av-hair', HAIR_STYLES, 'hair');
-    pieceRow('av-headwear', HEADWEAR_STYLES, 'headwear');
-    pieceRow('av-top', TOP_STYLES, 'top');
-    pieceRow('av-sash', SASH_STYLES, 'sash');
-    pieceRow('av-bottom', BOTTOM_STYLES, 'bottom');
-    swatchRow('av-cloth', CLOTH_COLORS, 'cloth');
-    swatchRow('av-accent', ACCENT_COLORS, 'accent');
-    swatchRow('av-shoe', SHOE_COLORS, 'shoe');
+    safeRow(() => { $('av-preview').innerHTML = Art.avatar(av); }, 'ตัวอย่างตัวละคร');
+    safeRow(() => swatchRow('av-skin', SKIN_TONES, 'skin'), 'สีผิว');
+    safeRow(() => pieceRow('av-hair', HAIR_STYLES, 'hair'), 'ทรงผม');
+    safeRow(() => pieceRow('av-headwear', HEADWEAR_STYLES, 'headwear'), 'เครื่องประดับศีรษะ');
+    safeRow(() => pieceRow('av-top', TOP_STYLES, 'top'), 'เสื้อ');
+    safeRow(() => pieceRow('av-sash', SASH_STYLES, 'sash'), 'ผ้าพาด/สไบ');
+    safeRow(() => pieceRow('av-bottom', BOTTOM_STYLES, 'bottom'), 'ผ้านุ่ง');
+    safeRow(() => swatchRow('av-cloth', CLOTH_COLORS, 'cloth'), 'สีผ้า');
+    safeRow(() => swatchRow('av-accent', ACCENT_COLORS, 'accent'), 'สีขลิบ');
+    safeRow(() => swatchRow('av-shoe', SHOE_COLORS, 'shoe'), 'สีรองเท้า');
   }
 
   // ---------------- เริ่มระบบ ----------------
