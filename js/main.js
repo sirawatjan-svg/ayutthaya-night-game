@@ -81,15 +81,19 @@ const App = (() => {
     el.querySelectorAll('.chip').forEach(c => c.onclick = () => { onSet(+c.dataset.m); chipRow(el, +c.dataset.m, onSet); Sound.tick(); });
   }
 
-  // ---------------- ฟอร์มนักเรียน: ผสมชุดเอง (v1, 2026-07-22) ----------------
-  // เดิมเลือก 1 ใน 10 ชุดสำเร็จรูป — เปลี่ยนเป็นผสมเอง 6 ส่วนอิสระ (สีผิว/ผม/เสื้อ/ผ้านุ่ง/สีผ้า/สีขลิบ) ตามฟีดแบ็กนักเรียน
+  // ---------------- ฟอร์มนักเรียน: ผสมชุดเอง (v1 2026-07-22, ขยาย v1.2 เพิ่มศีรษะ/สไบ/รองเท้าเป็นชั้นอิสระ) ----------------
+  // เดิมเลือก 1 ใน 10 ชุดสำเร็จรูป — เปลี่ยนเป็นผสมเองหลายส่วนอิสระตามฟีดแบ็กนักเรียน+Art Direction
+  // headwear/sash ตั้งต้นที่ 0 (ไม่มี) เสมอ ไม่สุ่ม — กันดูรกเกินไปตั้งแต่แรกเห็น ให้เด็กกดเพิ่มเองถ้าอยากได้
   let av = {
     skin: Math.floor(Math.random() * SKIN_TONES.length),
     hair: Math.floor(Math.random() * HAIR_STYLES.length),
+    headwear: 0,
     top: Math.floor(Math.random() * TOP_STYLES.length),
+    sash: 0,
     bottom: Math.floor(Math.random() * BOTTOM_STYLES.length),
     cloth: Math.floor(Math.random() * CLOTH_COLORS.length),
     accent: Math.floor(Math.random() * ACCENT_COLORS.length),
+    shoe: Math.floor(Math.random() * SHOE_COLORS.length),
   };
   function swatchRow(id, colors, key) {
     const row = $(id);
@@ -109,10 +113,13 @@ const App = (() => {
     $('av-preview').innerHTML = Art.avatar(av);
     swatchRow('av-skin', SKIN_TONES, 'skin');
     pieceRow('av-hair', HAIR_STYLES, 'hair');
+    pieceRow('av-headwear', HEADWEAR_STYLES, 'headwear');
     pieceRow('av-top', TOP_STYLES, 'top');
+    pieceRow('av-sash', SASH_STYLES, 'sash');
     pieceRow('av-bottom', BOTTOM_STYLES, 'bottom');
     swatchRow('av-cloth', CLOTH_COLORS, 'cloth');
     swatchRow('av-accent', ACCENT_COLORS, 'accent');
+    swatchRow('av-shoe', SHOE_COLORS, 'shoe');
   }
 
   // ---------------- เริ่มระบบ ----------------
