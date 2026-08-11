@@ -167,26 +167,43 @@ const Art = (() => {
       <path d="M37,92 L63,92 L64,100 L36,100 Z" fill="${c.accent}" opacity="0.85"/>
       <path d="M35,122 L65,122 L64,128 L36,128 Z" fill="${c.accent}" opacity="0.55"/>`, // ผ้าถุงลายเชิง
   ];
+  // ศีรษะ (แยกจากผม) และสไบ/ผ้าพาด (แยกจากเสื้อ) — ชั้นซ้อนทับอิสระ ผสมกับผม/เสื้อแบบไหนก็ได้ตามฟีดแบ็ก Art Direction รอบ 2
+  // index 0 ของทั้งคู่ต้องเป็น "ไม่มี" (คืนค่าง่างเปล่า) เสมอ กันบังคับให้ทุกคนต้องมีเครื่องประดับ/สไบ
+  const HEADWEAR_FNS = [
+    (c) => '', // ไม่มี
+    (c) => `<circle cx="58" cy="9" r="2" fill="${c.accent}"/><path d="M58,9 L64,4" stroke="${c.accent}" stroke-width="1.5" fill="none" stroke-linecap="round"/>`, // ปิ่นปักผม
+    (c) => `<path d="M31,22 Q50,18 69,22 L69,18 Q50,14 31,18 Z" fill="${c.accent}"/>`, // ผ้าคาดหัว
+    (c) => `<circle cx="60" cy="10" r="2.2" fill="${c.accent}"/><circle cx="63" cy="8" r="1.6" fill="${c.accent}" opacity="0.8"/><circle cx="57" cy="7" r="1.6" fill="${c.accent}" opacity="0.8"/>`, // ดอกไม้ประดับผม
+  ];
+  const SASH_FNS = [
+    (c) => '', // ไม่มี
+    (c) => `<path d="M63,49 L36,86 L36,94 L48,94 L67,60 Z" fill="${c.cloth}"/><path d="M63,49 L67,60 L64,64 L60,52 Z" fill="${c.accent}"/>`, // พาดซ้าย (จากไหล่ขวาลงสะโพกซ้าย)
+    (c) => `<path d="M37,49 L64,86 L64,94 L52,94 L33,60 Z" fill="${c.cloth}"/><path d="M37,49 L33,60 L36,64 L40,52 Z" fill="${c.accent}"/>`, // พาดขวา (สลับด้าน กระจกซ้าย)
+  ];
   function character(c, opts) {
     const o = opts || {};
     const hairFn = HAIR_FNS[c.hair % HAIR_FNS.length] || HAIR_FNS[0];
     const topFn = TOP_FNS[c.top % TOP_FNS.length] || TOP_FNS[0];
     const bottomFn = BOTTOM_FNS[c.bottom % BOTTOM_FNS.length] || BOTTOM_FNS[0];
+    const headwearFn = HEADWEAR_FNS[c.headwear % HEADWEAR_FNS.length] || HEADWEAR_FNS[0];
+    const sashFn = SASH_FNS[c.sash % SASH_FNS.length] || SASH_FNS[0];
     return `<svg viewBox="0 0 100 170" xmlns="http://www.w3.org/2000/svg" ${o.attrs || ''}>
       <ellipse cx="50" cy="160" rx="26" ry="6" fill="#000" opacity="0.18"/>
       ${bottomFn(c)}
       <rect x="42" y="128" width="6" height="26" rx="3" fill="${c.skin}"/>
       <rect x="52" y="128" width="6" height="26" rx="3" fill="${c.skin}"/>
-      <path d="M40,152 L49,152 L49,158 L38,158 Z" fill="#7a5a3a"/>
-      <path d="M51,152 L60,152 L62,158 L51,158 Z" fill="#7a5a3a"/>
+      <path d="M40,152 L49,152 L49,158 L38,158 Z" fill="${c.shoe}"/>
+      <path d="M51,152 L60,152 L62,158 L51,158 Z" fill="${c.shoe}"/>
       <path d="M34,54 Q30,58 28,76 Q27,84 32,86 Q36,86 36,80 L38,60 Z" fill="${c.skin}"/>
       <path d="M66,54 Q70,58 72,76 Q73,84 68,86 Q64,86 64,80 L62,60 Z" fill="${c.skin}"/>
       ${topFn(c)}
       <path d="M36,88 L64,88 L64,94 L36,94 Z" fill="${c.accent}"/>
+      ${sashFn(c)}
       <rect x="44" y="40" width="12" height="12" fill="${c.skin}"/>
       <circle cx="50" cy="30" r="17" fill="${c.skin}"/>
       <path d="M33,30 a3,4 0 1,0 0.1,0 Z M67,30 a3,4 0 1,0 -0.1,0 Z" fill="${c.skin}"/>
       ${hairFn(c)}
+      ${headwearFn(c)}
       <circle cx="44" cy="30" r="1.8" fill="#241a12"/><circle cx="56" cy="30" r="1.8" fill="#241a12"/>
       <path d="M41,25.6 q3,-2.4 6,-0.6 M53,25 q3,-1.8 6,0.6" stroke="#241a12" stroke-width="1.2" fill="none" stroke-linecap="round"/>
       <path d="M45,37 Q50,40.6 55,37" stroke="#8c5a40" stroke-width="1.6" fill="none" stroke-linecap="round"/>
@@ -199,14 +216,17 @@ const Art = (() => {
         skin: SKIN_TONES[(a.skin || 0) % SKIN_TONES.length],
         cloth: CLOTH_COLORS[(a.cloth || 0) % CLOTH_COLORS.length].hex,
         accent: ACCENT_COLORS[(a.accent || 0) % ACCENT_COLORS.length].hex,
+        shoe: SHOE_COLORS[(a.shoe || 0) % SHOE_COLORS.length].hex,
         hair: (a.hair || 0) % HAIR_STYLES.length,
         top: (a.top || 0) % TOP_STYLES.length,
         bottom: (a.bottom || 0) % BOTTOM_STYLES.length,
+        headwear: (a.headwear || 0) % HEADWEAR_STYLES.length, // ค่าเริ่มต้น 0 = ไม่มี เสมอ (ข้อมูลเก่าที่ไม่มีฟิลด์นี้เลยก็ปลอดภัย)
+        sash: (a.sash || 0) % SASH_STYLES.length,
       };
     }
     const row = COSTUMES[(Number(a) || 0) % COSTUMES.length];
     const isFemale = row.hair === 'bun';
-    return { skin: row.skin, cloth: row.cloth, accent: row.accent, hair: isFemale ? 1 : 0, top: isFemale ? 1 : 0, bottom: 0 };
+    return { skin: row.skin, cloth: row.cloth, accent: row.accent, shoe: SHOE_COLORS[0].hex, hair: isFemale ? 1 : 0, top: isFemale ? 1 : 0, bottom: 0, headwear: 0, sash: 0 };
   }
   function avatar(a, attrs) {
     return character(normalizeAvatar(a), { attrs: attrs || '' });
